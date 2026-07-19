@@ -78,11 +78,15 @@ public class AuthenticationController {
             return success;
         }
 
+        public String getMessage() {
+            return message;
+        }
 
         public Optional<User> getUser() {
             return Optional.ofNullable(user);
         }
     }
+
 
     private final Database database;
     private User currentSession;
