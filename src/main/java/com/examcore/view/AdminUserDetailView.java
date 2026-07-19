@@ -6,6 +6,7 @@ import com.examcore.model.Role;
 import com.examcore.model.Student;
 import com.examcore.model.Teacher;
 import com.examcore.model.User;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -19,14 +20,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
-import java.util.List;
 
-/**
- * Admin-only view of a single user's profile: lets an admin inspect and
- * edit any account's details, verify a pending teacher, and (de)activate
- * the account, matching "Admin should be able to click a user's profile
- * and view it / make changes to that user".
- */
 public class AdminUserDetailView {
 
     private final AdminController adminController;
