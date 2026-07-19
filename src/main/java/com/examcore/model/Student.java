@@ -1,9 +1,15 @@
 package com.examcore.model;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 public class Student extends User {
 
     private int examScore;
     private int quizScore;
+    private final ActivityLog activityLog = new ActivityLog();
+    private final List<Test> assignedExams = new ArrayList<>();
     private String grade;
 
     public Student(String username, String email, String plainTextPassword) {
@@ -30,6 +36,44 @@ public class Student extends User {
         student.quizScore = quizScore;
         student.grade = grade;
         return student;
+    }
+
+    public Submission takeExam(Test test) {
+        if (test == null) {
+            throw new IllegalArgumentException("Test cannot be null");
+        }
+        test.startTimer();
+        touch();
+        return new Submission(this, test);
+    }
+
+    public LeaderBoard viewLeaderBoard(LeaderBoard leaderBoard) {
+        return leaderBoard;
+    }
+
+    public void submitFeedback(Test test, String text) {
+        if (test == null) {
+            throw new IllegalArgumentException("Test cannot be null");
+        }
+        if (text == null || text.isBlank()) {
+            throw new IllegalArgumentException("Feedback text cannot be blank");
+        }
+        touch();
+    }
+
+    public void assignTest(Test test) {
+        if (test != null && !assignedExams.contains(test)) {
+            assignedExams.add(test);
+            touch();
+        }
+    }
+
+    public List<Test> getAssignedExams() {
+        return Collections.unmodifiableList(assignedExams);
+    }
+
+    public ActivityLog getActivityLog() {
+        return activityLog;
     }
 
     public int getExamScore() {
