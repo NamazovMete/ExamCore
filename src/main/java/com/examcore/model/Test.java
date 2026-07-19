@@ -42,12 +42,7 @@ public abstract class Test extends BaseEntity {
         return timerStartedAt;
     }
 
-    /**
-     * Computes the absolute score for a submission: one point per question
-     * whose recorded answer passes that question's own validateAnswer check.
-     * GradingService is the orchestration layer that calls this and applies
-     * business rules (empty-submission handling, persistence, logging).
-     */
+
     public int calculateScore(Submission submission) {
         if (submission == null || questions.isEmpty()) {
             return 0;
@@ -78,13 +73,12 @@ public abstract class Test extends BaseEntity {
         touch();
     }
 
-    /** Removes all questions from this test, e.g. before rebuilding the list with one removed. */
+
     public void clearQuestions() {
         questions.clear();
         touch();
     }
 
-    /** Replaces the question with the given ID in place, preserving its position in the list. */
     public void replaceQuestion(String questionID, Question replacement) {
         if (questionID == null || replacement == null) {
             throw new IllegalArgumentException("Question ID and replacement cannot be null");
