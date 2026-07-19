@@ -1,5 +1,8 @@
 package com.examcore.view;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import com.examcore.controller.AdminController;
 import com.examcore.controller.ExamAuthoringController;
 import com.examcore.data.Database;
@@ -10,6 +13,7 @@ import com.examcore.model.Teacher;
 import com.examcore.model.Test;
 import com.examcore.model.TestType;
 import com.examcore.model.User;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
@@ -23,14 +27,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
-import java.util.List;
-import java.util.stream.Collectors;
 
-/**
- * Admin console: verify pending teacher accounts, activate/deactivate any
- * user, and audit the system log, matching the "Admin verification console"
- * described in the detailed design report.
- */
 public class AdminDashboardView {
 
     static final List<String> NAV_TABS = List.of("Pending Teachers", "All Users", "All Exams", "All Quizzes",
