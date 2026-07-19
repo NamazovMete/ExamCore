@@ -11,7 +11,7 @@ public final class ProfanityFilter {
     private static final List<String> BANNED_WORDS = List.of(
             "damn", "hell", "crap", "ass", "asshole", "bastard", "bitch",
             "bullshit", "shit", "fuck", "fucking", "fucker", "dick",
-            "piss", "slut", "whore", "retard", "cunt"
+            "piss", "slut", "whore", "retard", "cunt", "stupid", "testBADWORD"
     );
 
     private static final Pattern PATTERN = Pattern.compile(
