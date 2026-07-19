@@ -118,5 +118,115 @@ public class ExamRunnerController {
         return currentSubmission;
     }
 
+    public synchronized void saveAnswer(String questionID, String answer) {
+        ensureActive();
+        if (questionID == null || questionID.isBlank()) {
+            throw new IllegalArgumentException("Question ID cannot be blank");
+        }
+
+        currentSubmission.recordAnswer(questionID, answer);
+        database.saveSubmission(currentSubmission);
+        logState("Auto-saved answer for question '" + questionID + "'");
+
+        ExamRunnerListener l = listener;
+        if (l != null) {
+            l.onAnswerSaved(questionID, answer);
+        }
+    }
+
+    public synchronized Submission submitExam() {
+        ensureActive();
+        return finishExam(false);
+    }
+
+    private synchronized void handleTimeExpired() {
+        if (!active) {
+            // The student already submitted manually in the instant before expiry; nothing to do.
+            return;
+        }
+        finishExam(true);
+    }
+
+    private Submission finishExam(boolean dueToTimeout) {
+        timerService.stop();
+        if (dueToTimeout) {
+            currentSubmission.markTimeExpired();
+        }
+        currentTest.submitTest(currentSubmission);
+
+        int score = gradingService.gradeSubmission(currentSubmission);
+
+        logState("Submitted '" + currentTest.getTestID() + "' "
+                + (dueToTimeout ? "(auto-submitted: time expired)" : "(manual submit)")
+                + " -- score " + score + "/" + currentTest.getQuestions().size());
+
+        Submission result = currentSubmission;
+        active = false;
+        currentSubmission = null;
+        currentTest = null;
+        currentStudent = null;
+
+        ExamRunnerListener l = listener;
+        if (l != null) {
+            l.onExamSubmitted(result, score, dueToTimeout);
+        }
+        return result;
+    }
+
+    public synchronized int recordFocusLost() {
+        if (!active) {
+            return 0;
+        }
+        currentSubmission.recordFocusLoss();
+        database.saveSubmission(currentSubmission);
+        int count = currentSubmission.getFocusLossCount();
+        logState("Focus lost / window left during '" + currentTest.getTestID() + "' (occurrence #" + count + ")");
+        database.logSystemEvent(currentStudent.getUsername() + " left the Focus Mode window during '"
+                + currentTest.getTitle() + "' (occurrence #" + count + ")");
+        return count;
+    }
+
+    public synchronized void recordClipboardBlocked(String action) {
+        if (!active) {
+            return;
+        }
+        logState("Blocked clipboard action (" + action + ") during '" + currentTest.getTestID() + "'");
+    }
+
+    private void ensureActive() {
+        if (!active) {
+            throw new IllegalStateException("No exam is currently in progress");
+        }
+    }
+
+    private void logState(String entry) {
+        stateLog.add(LocalDateTime.now() + " - " + entry);
+    }
+
+    public List<String> getStateLog() {
+        synchronized (stateLog) {
+            return List.copyOf(stateLog);
+        }
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public Optional<Submission> getCurrentSubmission() {
+        return Optional.ofNullable(currentSubmission);
+    }
+
+    public Optional<Test> getCurrentTest() {
+        return Optional.ofNullable(currentTest);
+    }
+
+    public long getSecondsRemaining() {
+        return timerService.getSecondsRemaining();
+    }
+
+    public void shutdown() {
+        timerService.shutdown();
+    }
 
 }
