@@ -51,7 +51,6 @@ public abstract class Question extends BaseEntity {
         }
     }
 
-    /** Replaces the full tag list, de-duplicating while preserving order. */
     public void setTags(List<String> newTags) {
         tags.clear();
         if (newTags != null) {

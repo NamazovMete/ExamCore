@@ -7,10 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Captures a single student's attempt at a Test (Exam or Quiz): the answers
- * they recorded, whether grading has completed, and how the attempt ended.
- */
+
 public class Submission extends BaseEntity {
 
     private final Student student;
@@ -44,12 +41,6 @@ public class Submission extends BaseEntity {
         this.startedAt = startedAt;
     }
 
-    /**
-     * Rebuilds a Submission from persisted state, preserving the original
-     * timestamps exactly (e.g. {@code submittedAt} feeds the student's
-     * activity heatmap, so it must reflect the real historical date rather
-     * than the moment the app happened to reload).
-     */
     public static Submission restoreFromStorage(Student student, Test test, LocalDateTime startedAt,
                                                 LocalDateTime submittedAt, int score, boolean graded,
                                                 boolean timeExpired, Map<String, String> answers,
@@ -91,11 +82,6 @@ public class Submission extends BaseEntity {
         touch();
     }
 
-    /**
-     * Approximate time spent reaching an answer for a question: the duration
-     * from the start of the attempt to the first time that question was
-     * answered. Returns {@code null} if the question was never answered.
-     */
     public java.time.Duration getTimeToFirstAnswer(String questionID) {
         LocalDateTime answeredAt = firstAnsweredAt.get(questionID);
         if (answeredAt == null) {
@@ -146,7 +132,6 @@ public class Submission extends BaseEntity {
         touch();
     }
 
-    /** Flags this submission as having run out of time, prior to being marked submitted. */
     public void markTimeExpired() {
         this.timeExpired = true;
         touch();
@@ -166,7 +151,6 @@ public class Submission extends BaseEntity {
         return submittedAt != null;
     }
 
-    /** Records that Focus Mode detected the student's window losing focus during this attempt. */
     public void recordFocusLoss() {
         focusLossEvents.add(LocalDateTime.now());
         touch();
