@@ -9,6 +9,11 @@ public class Teacher extends User {
         this.isVerified = false;
     }
 
+    private Teacher(String username, String email, String passwordHash, boolean isActive, boolean isVerified) {
+        super(username, email, passwordHash, Role.TEACHER, PasswordEncoding.HASHED);
+        setActive(isActive);
+        this.isVerified = isVerified;
+    }
 
     public boolean isVerified() {
         return isVerified;
