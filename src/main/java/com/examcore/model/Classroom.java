@@ -9,6 +9,7 @@ public class Classroom extends BaseEntity {
     private final String classID;
     private String className;
     private final List<Student> studentList = new ArrayList<>();
+    private final List<Test> assignedExams = new ArrayList<>();
 
     public Classroom(String classID, String className) {
         super();
@@ -36,6 +37,20 @@ public class Classroom extends BaseEntity {
 
     public int getParticipantCount() {
         return studentList.size();
+    }
+
+    public void assignTest(Test test) {
+        if (test == null) {
+            throw new IllegalArgumentException("Test cannot be null");
+        }
+        if (!assignedExams.contains(test)) {
+            assignedExams.add(test);
+            touch();
+        }
+    }
+
+    public List<Test> getAssignedExams() {
+        return Collections.unmodifiableList(assignedExams);
     }
 
     public List<Student> getStudentList() {
