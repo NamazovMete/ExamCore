@@ -14,6 +14,15 @@ public class Admin extends User {
         super(username, email, plainTextPassword, Role.ADMIN);
         this.adminLevel = 1;
     }
+    
+    public void verifyTeacher(Teacher teacher) {
+        if (teacher == null) {
+            throw new IllegalArgumentException("Teacher cannot be null");
+        }
+        teacher.setVerified(true);
+        systemLogs.add(LocalDateTime.now() + " - Verified teacher " + teacher.getUsername());
+        touch();
+    }
 
     public List<String> viewSystemLogs() {
         return Collections.unmodifiableList(systemLogs);
