@@ -220,5 +220,88 @@ class AuthenticationControllerTest {
         assertDoesNotThrow(() -> auth.requireDashboardAccess(Dashboard.ADMIN_DASHBOARD));
     }
 
+    @Test
+    void constructor_nullDatabase_throwsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () -> new AuthenticationController(null));
+    }
 
+    @Test
+    void reLogin_afterLogout_succeeds() {
+        auth.login("student1", "correctPassword");
+        auth.logout();
+
+        AuthenticationResult result = auth.login("student1", "correctPassword");
+
+        assertTrue(result.isSuccess());
+    }
+
+    @Test
+    void register_newStudent_succeedsAndPersistsToDatabase() {
+        RegistrationResult result = auth.register("newstudent", "new@student.com", "password123", Role.STUDENT);
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getUser().orElseThrow() instanceof Student);
+        assertTrue(database.findUserByUsername("newstudent").isPresent());
+    }
+
+    @Test
+    void register_newTeacher_succeedsAndPersistsToDatabase() {
+        RegistrationResult result = auth.register("newteacher", "new@teacher.com", "password123", Role.TEACHER);
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getUser().orElseThrow() instanceof Teacher);
+        assertTrue(database.findUserByUsername("newteacher").isPresent());
+    }
+
+    @Test
+    void register_newAccountCanThenLogin() {
+        auth.register("newstudent", "new@student.com", "password123", Role.STUDENT);
+
+        AuthenticationResult loginResult = auth.login("newstudent", "password123");
+
+        assertTrue(loginResult.isSuccess());
+        assertEquals(Dashboard.STUDENT_DASHBOARD, loginResult.getDashboard().orElseThrow());
+    }
+
+    @Test
+    void register_duplicateUsername_fails() {
+        RegistrationResult result = auth.register("student1", "dup@test.com", "password123", Role.STUDENT);
+
+        assertFalse(result.isSuccess());
+    }
+
+    @Test
+    void register_adminRole_isRejected() {
+        RegistrationResult result = auth.register("newadmin", "new@admin.com", "password123", Role.ADMIN);
+
+        assertFalse(result.isSuccess());
+    }
+
+    @Test
+    void register_blankUsername_fails() {
+        RegistrationResult result = auth.register("", "new@student.com", "password123", Role.STUDENT);
+
+        assertFalse(result.isSuccess());
+    }
+
+    @Test
+    void register_blankEmail_fails() {
+        RegistrationResult result = auth.register("newstudent", "", "password123", Role.STUDENT);
+
+        assertFalse(result.isSuccess());
+    }
+
+    @Test
+    void register_shortPassword_fails() {
+        RegistrationResult result = auth.register("newstudent", "new@student.com", "abc", Role.STUDENT);
+
+        assertFalse(result.isSuccess());
+    }
+
+    @Test
+    void register_nullRole_fails() {
+        RegistrationResult result = auth.register("newstudent", "new@student.com", "password123", null);
+
+        assertFalse(result.isSuccess());
+    }
 }
