@@ -38,10 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Student workspace: My Exams, My Quizzes, Leaderboard, Personal Activity,
- * and Profile Settings, matching the EXAMCORE_DEMO.pdf student screens.
- */
 public class StudentDashboardView {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
