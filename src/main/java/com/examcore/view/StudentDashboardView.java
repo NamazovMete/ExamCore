@@ -285,4 +285,267 @@ public class StudentDashboardView {
                 });
         root.setCenter(examView.getRoot());
     }   
+
+    private VBox buildLeaderboardPage() {
+        HBox header = new HBox();
+        header.setAlignment(Pos.CENTER_LEFT);
+        Label titleLabel = UiComponents.pageTitle("Leaderboard");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        TextField search = new TextField();
+        search.setPromptText("🔍 Search");
+        search.setPrefWidth(220);
+        header.getChildren().addAll(titleLabel, spacer, search);
+
+        VBox tableContainer = new VBox();
+        Runnable refresh = () -> tableContainer.getChildren().setAll(buildLeaderboardTable(search.getText()));
+        search.textProperty().addListener((obs, oldVal, newVal) -> refresh.run());
+        refresh.run();
+
+        return new VBox(24, header, tableContainer);
+    }
+
+    private VBox buildLeaderboardTable(String query) {
+        LeaderBoard leaderBoard = database.getLeaderBoard();
+        List<Student> ranked = leaderBoard.fetchTopStudents(Integer.MAX_VALUE);
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase();
+
+        VBox table = new VBox(2);
+        HBox headerRow = new HBox();
+        headerRow.getStyleClass().add("leaderboard-header");
+        headerRow.setPadding(new Insets(14, 20, 14, 20));
+        headerRow.getChildren().addAll(
+                columnLabel("Rank", 90), columnLabel("Student", 420), columnLabel("Exam", 120),
+                columnLabel("Quiz", 120), columnLabel("Total", 120));
+        table.getChildren().add(headerRow);
+
+        int rank = 1;
+        int matches = 0;
+        for (Student s : ranked) {
+            int currentRank = rank++;
+            String fullName = UiComponents.fullName(s);
+            if (!normalizedQuery.isEmpty() && !fullName.toLowerCase().contains(normalizedQuery)
+                    && !s.getUsername().toLowerCase().contains(normalizedQuery)) {
+                continue;
+            }
+            matches++;
+
+            HBox row = new HBox();
+            row.getStyleClass().add(s.equals(student) ? "leaderboard-row-highlight" : "leaderboard-row");
+            row.setPadding(new Insets(14, 20, 14, 20));
+            String name = s.equals(student) ? fullName + " (me)" : fullName;
+            row.getChildren().addAll(
+                    columnLabel(String.valueOf(currentRank), 90), columnLabel(name, 420),
+                    columnLabel(String.valueOf(s.getExamScore()), 120),
+                    columnLabel(String.valueOf(s.getQuizScore()), 120),
+                    columnLabel(String.valueOf(s.getTotalScore()), 120));
+            table.getChildren().add(row);
+        }
+
+        if (matches == 0 && !normalizedQuery.isEmpty()) {
+            Label empty = new Label("No students match \"" + query.trim() + "\".");
+            empty.getStyleClass().add("muted-text");
+            empty.setPadding(new Insets(14, 20, 14, 20));
+            table.getChildren().add(empty);
+        }
+
+        VBox card = UiComponents.card(0);
+        card.getChildren().add(table);
+        card.setPadding(Insets.EMPTY);
+        return card;
+    }
+
+    private Label columnLabel(String text, double width) {
+        Label label = new Label(text);
+        label.setMinWidth(width);
+        label.setPrefWidth(width);
+        label.getStyleClass().add("row-title");
+        return label;
+    }
+
+    private VBox buildProfilePage() {
+        Label title = UiComponents.pageTitle("Profile Settings");
+
+        Label pictureLabel = new Label("Picture");
+        pictureLabel.getStyleClass().add("field-label");
+        var avatar = UiComponents.avatarView(student, 60);
+        var uploadButton = UiComponents.outlineButton("Upload Picture");
+        uploadButton.setOnAction(e -> {
+            javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+            chooser.setTitle("Choose Profile Picture");
+            chooser.getExtensionFilters().add(
+                    new javafx.stage.FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg"));
+            java.io.File file = chooser.showOpenDialog(uploadButton.getScene().getWindow());
+            if (file != null) {
+                student.setProfilePicturePath(file.getAbsolutePath());
+                render();
+            }
+        });
+        VBox pictureBox = new VBox(10, pictureLabel, avatar, uploadButton);
+
+        TextField nameField = labeledField("Name", student.getFirstName());
+        TextField middleField = labeledField("Middle name", student.getMiddleName());
+        TextField surnameField = labeledField("Surname", student.getLastName());
+        TextField schoolField = labeledField("School", student.getSchool());
+        TextField departmentField = labeledField("Department", student.getDepartment());
+        TextField gradeField = labeledField("Grade", student.getGrade());
+        TextField emailField = labeledField("Email", student.getEmail());
+        TextField roleField = labeledField("Role", "Student");
+        roleField.setEditable(false);
+
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setHgap(28);
+        grid.setVgap(18);
+        grid.add(fieldBox(nameField), 1, 0);
+        grid.add(fieldBox(middleField), 2, 0);
+        grid.add(fieldBox(surnameField), 3, 0);
+        grid.add(fieldBox(schoolField), 1, 1);
+        grid.add(fieldBox(departmentField), 2, 1);
+        grid.add(fieldBox(gradeField), 3, 1);
+        grid.add(fieldBox(emailField), 1, 2);
+        grid.add(fieldBox(roleField), 2, 2);
+
+        var saveButton = UiComponents.greenButton("Save Changes");
+        saveButton.setMaxWidth(Double.MAX_VALUE);
+        saveButton.setOnAction(e -> {
+            student.setFirstName(blankToNull(nameField.getText()));
+            student.setMiddleName(blankToNull(middleField.getText()));
+            student.setLastName(blankToNull(surnameField.getText()));
+            student.setSchool(blankToNull(schoolField.getText()));
+            student.setDepartment(blankToNull(departmentField.getText()));
+            student.setGrade(blankToNull(gradeField.getText()));
+            student.setEmail(blankToNull(emailField.getText()));
+            render();
+        });
+
+        var logoutButton = UiComponents.pinkButton("Log Out");
+        logoutButton.setMaxWidth(Double.MAX_VALUE);
+        logoutButton.setOnAction(e -> onLogout.run());
+
+        VBox actions = new VBox(12, saveButton, logoutButton);
+        actions.setMaxWidth(220);
+
+        VBox left = new VBox(24, pictureBox, actions);
+
+        HBox layout = new HBox(48, left, grid);
+        return new VBox(28, title, layout);
+    }
+
+    private TextField labeledField(String label, String value) {
+        TextField field = new TextField(value == null ? "" : value);
+        field.setUserData(label);
+        return field;
+    }
+
+    private VBox fieldBox(TextInputControl field) {
+        Label label = new Label((String) field.getUserData());
+        label.getStyleClass().add("field-label");
+        field.setPrefWidth(260);
+        VBox box = new VBox(6, label, field);
+        return box;
+    }
+
+    private String blankToNull(String text) {
+        return text == null || text.isBlank() ? null : text;
+    }
+
+    private VBox buildActivityPage() {
+        Label title = UiComponents.pageTitle("Personal Activity");
+
+        VBox heatmapCard = UiComponents.card(16);
+        Label heatmapTitle = new Label("Activity Heatmap (last 12 weeks)");
+        heatmapTitle.getStyleClass().add("section-title");
+        heatmapTitle.setWrapText(true);
+
+        ActivityLog log = student.getActivityLog();
+        Map<LocalDate, Integer> heatmap = log.generateHeatMap(12);
+
+        LocalDate cutoff = LocalDate.now().minusWeeks(12);
+        Map<LocalDate, Integer> examCounts = new java.util.HashMap<>();
+        Map<LocalDate, Integer> quizCounts = new java.util.HashMap<>();
+        for (Submission submission : log.getCompletionHistory()) {
+            if (submission.getSubmittedAt() == null) {
+                continue;
+            }
+            LocalDate day = submission.getSubmittedAt().toLocalDate();
+            if (day.isBefore(cutoff)) {
+                continue;
+            }
+            Map<LocalDate, Integer> target = submission.getTest().getTestType() == TestType.QUIZ
+                    ? quizCounts : examCounts;
+            target.merge(day, 1, Integer::sum);
+        }
+
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setHgap(6);
+        grid.setVgap(6);
+        LocalDate start = LocalDate.now().minusWeeks(11).with(java.time.DayOfWeek.MONDAY);
+        for (int week = 0; week < 12; week++) {
+            for (int day = 0; day < 7; day++) {
+                LocalDate cellDate = start.plusWeeks(week).plusDays(day);
+                int count = heatmap.getOrDefault(cellDate, 0);
+                Rectangle cell = new Rectangle(20, 20);
+                cell.setArcWidth(6);
+                cell.setArcHeight(6);
+                cell.setFill(heatColor(count));
+                if (count > 0) {
+                    int examCount = examCounts.getOrDefault(cellDate, 0);
+                    int quizCount = quizCounts.getOrDefault(cellDate, 0);
+                    List<String> parts = new java.util.ArrayList<>();
+                    if (examCount > 0) {
+                        parts.add(examCount + (examCount == 1 ? " exam" : " exams"));
+                    }
+                    if (quizCount > 0) {
+                        parts.add(quizCount + (quizCount == 1 ? " quiz" : " quizzes"));
+                    }
+                    Tooltip tooltip = new Tooltip(String.join(", ", parts) + " done");
+                    tooltip.setShowDelay(javafx.util.Duration.millis(50));
+                    tooltip.setShowDuration(javafx.util.Duration.seconds(10));
+                    Tooltip.install(cell, tooltip);
+                }
+                grid.add(cell, week, day);
+            }
+        }
+        heatmapCard.getChildren().addAll(heatmapTitle, grid);
+
+        VBox historyCard = UiComponents.card(16);
+        Label historyTitle = new Label("Completed Exams & Quizzes");
+        historyTitle.getStyleClass().add("section-title");
+
+        javafx.scene.layout.GridPane historyGrid = new javafx.scene.layout.GridPane();
+        historyGrid.setHgap(24);
+        historyGrid.setVgap(10);
+        String[] cols = {"Exam Name", "Date", "Status", "Point"};
+        for (int i = 0; i < cols.length; i++) {
+            Label headerLabel = new Label(cols[i]);
+            headerLabel.getStyleClass().add("row-subtitle");
+            historyGrid.add(headerLabel, i, 0);
+        }
+        int rowIndex = 1;
+        for (Submission submission : log.getCompletionHistory()) {
+            historyGrid.add(new Label(submission.getTest().getTitle()), 0, rowIndex);
+            String dateText = submission.getSubmittedAt() != null
+                    ? submission.getSubmittedAt().format(DATE_FORMAT) : "-";
+            historyGrid.add(new Label(dateText), 1, rowIndex);
+            historyGrid.add(new Label(submission.isGraded() ? "Completed" : "Pending"), 2, rowIndex);
+            historyGrid.add(new Label(String.valueOf(submission.getScore())), 3, rowIndex);
+            rowIndex++;
+        }
+        historyCard.getChildren().addAll(historyTitle, historyGrid);
+
+        HBox columns = new HBox(24, heatmapCard, historyCard);
+        HBox.setHgrow(heatmapCard, Priority.ALWAYS);
+        HBox.setHgrow(historyCard, Priority.ALWAYS);
+
+        return new VBox(24, title, columns);
+    }
+
+    private Color heatColor(int count) {
+        return switch (Math.min(count, 3)) {
+            case 0 -> Color.web("#E3E4E6");
+            case 1 -> Color.web("#9BEAF0");
+            case 2 -> Color.web("#3FD8E6");
+            default -> Color.web("#0FB8C9");
+        };
+    }
 }
