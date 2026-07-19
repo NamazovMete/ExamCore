@@ -1,5 +1,13 @@
 package com.examcore.data;
 
+
+//to work with NEON
+import java.nio.file.Files; 
+import java.net.URI;
+import java.util.Optional;
+import java.util.Properties;
+
+
 import com.examcore.model.Admin;
 import com.examcore.model.Classroom;
 import com.examcore.model.Exam;
@@ -62,11 +70,20 @@ public final class Database {
     private final List<String> systemLogs = new ArrayList<>();
     private final LeaderBoard leaderBoard = new LeaderBoard();
 
+     private static final String NEON_DATABASE_URL_ENV = "NEON_DATABASE_URL";
+
     static {
         try {
             Class.forName("org.sqlite.JDBC");
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException("SQLite JDBC driver not found on the classpath", e);
+        }
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException(
+                    "PostgreSQL JDBC driver not found on the classpath. Add the org.postgresql:postgresql "
+                            + "dependency to pom.xml.", e);
         }
     }
 
@@ -95,22 +112,47 @@ public final class Database {
 
     private static Database createPersistentInstance() {
         try {
-            Path dbFile = resolveDatabaseFile();
-            Files.createDirectories(dbFile.getParent());
-            Connection connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile);
+            String neonUrl = System.getenv(NEON_DATABASE_URL_ENV);
+            Connection connection = (neonUrl != null && !neonUrl.isBlank())
+                    ? openNeonConnection(neonUrl)
+                    : openLocalSqliteConnection();
             return new Database(connection, true);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to initialize the persistent ExamCore database", e);
         }
     }
 
-
-    private static Path resolveDatabaseFile() {
-        String appData = System.getenv("APPDATA");
-        if (appData != null && !appData.isBlank()) {
-            return Path.of(appData, "ExamCore", "examcore.db");
+    private static Connection openNeonConnection(String neonUrl) throws SQLException {
+        URI uri = URI.create(neonUrl);
+        String userInfo = uri.getUserInfo();
+        Properties props = new Properties();
+        props.setProperty("sslmode", "require");
+        if (userInfo != null && userInfo.contains(":")) {
+            String[] parts = userInfo.split(":", 2);
+            props.setProperty("user", parts[0]);
+            props.setProperty("password", parts[1]);
         }
-        return Path.of(System.getProperty("user.home"), ".examcore-app", "examcore.db");
+        String query = uri.getQuery();
+        if (query != null) {
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=", 2);
+                if (kv.length == 2) {
+                    props.setProperty(kv[0], kv[1]);
+                }
+            }
+        }
+        int port = uri.getPort() != -1 ? uri.getPort() : 5432;
+        String jdbcUrl = "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getPath();
+        return DriverManager.getConnection(jdbcUrl, props);
+    }
+
+    private static Connection openLocalSqliteConnection() throws SQLException, java.io.IOException {
+        String appData = System.getenv("APPDATA");
+        Path dbFile = (appData != null && !appData.isBlank())
+                ? Path.of(appData, "ExamCore", "examcore.db")
+                : Path.of(System.getProperty("user.home"), ".examcore-app", "examcore.db");
+        Files.createDirectories(dbFile.getParent());
+        return DriverManager.getConnection("jdbc:sqlite:" + dbFile);
     }
 
     private static Connection openEphemeralConnection() {
