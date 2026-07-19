@@ -15,9 +15,19 @@ public abstract class User extends BaseEntity {
     private String school;
     private String department;
     private String profilePicturePath;
+
     private boolean loggedIn;
 
+    protected enum PasswordEncoding {
+        PLAINTEXT,
+        HASHED
+    }
+
     protected User(String username, String email, String plainTextPassword, Role role) {
+        this(username, email, plainTextPassword, role, PasswordEncoding.PLAINTEXT);
+    }
+
+    protected User(String username, String email, String password, Role role, PasswordEncoding encoding) {
         super();
         if (username == null || username.isBlank()) {
             throw new IllegalArgumentException("Username cannot be blank");
@@ -27,7 +37,7 @@ public abstract class User extends BaseEntity {
         }
         this.username = username;
         this.email = email;
-        this.passwordHash = PasswordUtil.hash(plainTextPassword);
+        this.passwordHash = encoding == PasswordEncoding.HASHED ? password : PasswordUtil.hash(password);
         this.role = role;
         this.isActive = true;
         this.loggedIn = false;
