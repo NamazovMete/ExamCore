@@ -99,6 +99,8 @@ public class StudentDashboardView {
         root.setCenter(scrollPane);
     }
 
+    // buildTestListPage 
+
     private VBox buildTestListPage(String title, TestType type) {
         HBox header = new HBox();
         header.setAlignment(Pos.CENTER_LEFT);
@@ -282,6 +284,9 @@ public class StudentDashboardView {
         root.setCenter(examView.getRoot());
     }   
 
+
+    // leaderboard 
+
     private VBox buildLeaderboardPage() {
         HBox header = new HBox();
         header.setAlignment(Pos.CENTER_LEFT);
@@ -358,6 +363,8 @@ public class StudentDashboardView {
         label.getStyleClass().add("row-title");
         return label;
     }
+
+    // profile page
 
     private VBox buildProfilePage() {
         Label title = UiComponents.pageTitle("Profile Settings");
