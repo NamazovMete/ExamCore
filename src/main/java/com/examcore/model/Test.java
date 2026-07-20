@@ -15,6 +15,7 @@ public abstract class Test extends BaseEntity {
     private final List<String> tags = new ArrayList<>();
     private LocalDateTime timerStartedAt;
     private Teacher owner;
+    private boolean showAnswersAfterExam;
 
     protected Test(TestType testType, String testID, String title, int durationLimitMinutes) {
         super();
@@ -147,6 +148,15 @@ public abstract class Test extends BaseEntity {
             throw new IllegalArgumentException("Duration limit must be positive");
         }
         this.durationLimit = durationLimit;
+        touch();
+    }
+
+    public boolean isShowAnswersAfterExam() {
+        return showAnswersAfterExam;
+    }
+
+    public void setShowAnswersAfterExam(boolean showAnswersAfterExam) {
+        this.showAnswersAfterExam = showAnswersAfterExam;
         touch();
     }
 }
