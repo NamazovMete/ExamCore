@@ -497,12 +497,12 @@ public final class Database {
                         "grade TEXT, is_verified INTEGER, admin_level INTEGER)",
                 "CREATE TABLE IF NOT EXISTS tests (" +
                         "test_id TEXT PRIMARY KEY, test_type TEXT NOT NULL, title TEXT, duration_limit INTEGER, " +
-                        "owner_username TEXT, topic TEXT)",
+                        "owner_username TEXT, topic TEXT, show_answers INTEGER)",
                 "CREATE TABLE IF NOT EXISTS test_topics (test_id TEXT, position INTEGER, topic TEXT)",
                 "CREATE TABLE IF NOT EXISTS test_tags (test_id TEXT, position INTEGER, tag TEXT)",
                 "CREATE TABLE IF NOT EXISTS questions (" +
                         "test_id TEXT, question_id TEXT, position INTEGER, type TEXT, content TEXT, " +
-                        "solution TEXT, hint TEXT, PRIMARY KEY (test_id, question_id))",
+                        "solution TEXT, hint TEXT, explanation TEXT, PRIMARY KEY (test_id, question_id))",
                 "CREATE TABLE IF NOT EXISTS question_tags (test_id TEXT, question_id TEXT, position INTEGER, tag TEXT)",
                 "CREATE TABLE IF NOT EXISTS question_choices (test_id TEXT, question_id TEXT, position INTEGER, choice TEXT)",
                 "CREATE TABLE IF NOT EXISTS classrooms (class_id TEXT PRIMARY KEY, class_name TEXT)",
@@ -530,6 +530,20 @@ public final class Database {
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize the ExamCore schema", e);
+        }
+        migrateSchema();
+    }
+
+    private void migrateSchema() {
+        tryAlterTable("ALTER TABLE tests ADD COLUMN show_answers INTEGER");
+        tryAlterTable("ALTER TABLE questions ADD COLUMN explanation TEXT");
+    }
+
+    private void tryAlterTable(String sql) {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            // Column already exists on a previously-migrated database; nothing to do.
         }
     }
 
@@ -603,6 +617,7 @@ public final class Database {
                 Test test = TestType.valueOf(rs.getString("test_type")) == TestType.EXAM
                         ? new Exam(testId, title, durationLimit)
                         : new Quiz(testId, title, durationLimit, rs.getString("topic"));
+                test.setShowAnswersAfterExam(rs.getInt("show_answers") != 0);
 
                 String ownerUsername = rs.getString("owner_username");
                 if (ownerUsername != null && usersByUsername.get(ownerUsername) instanceof Teacher teacher) {
@@ -662,6 +677,7 @@ public final class Database {
                         ? new MultipleChoiceQuestion(questionId, content, solution)
                         : new FillInBlankQuestion(questionId, content, solution);
                 question.setHint(rs.getString("hint"));
+                question.setExplanation(rs.getString("explanation"));
                 test.addQuestion(question);
             }
         } catch (SQLException e) {
@@ -964,12 +980,12 @@ public final class Database {
         executeUpdate("DELETE FROM question_choices");
         executeUpdate("DELETE FROM question_tags");
 
-        String testSql = "INSERT INTO tests (test_id, test_type, title, duration_limit, owner_username, topic) "
-                + "VALUES (?,?,?,?,?,?)";
+        String testSql = "INSERT INTO tests (test_id, test_type, title, duration_limit, owner_username, topic, "
+                + "show_answers) VALUES (?,?,?,?,?,?,?)";
         String topicSql = "INSERT INTO test_topics (test_id, position, topic) VALUES (?,?,?)";
         String tagSql = "INSERT INTO test_tags (test_id, position, tag) VALUES (?,?,?)";
         String questionSql = "INSERT INTO questions (test_id, question_id, position, type, content, solution, "
-                + "hint) VALUES (?,?,?,?,?,?,?)";
+                + "hint, explanation) VALUES (?,?,?,?,?,?,?,?)";
         String choiceSql = "INSERT INTO question_choices (test_id, question_id, position, choice) VALUES (?,?,?,?)";
         String questionTagSql = "INSERT INTO question_tags (test_id, question_id, position, tag) VALUES (?,?,?,?)";
 
@@ -987,6 +1003,7 @@ public final class Database {
                 testPs.setInt(4, test.getDurationLimit());
                 testPs.setString(5, test.getOwner() != null ? test.getOwner().getUsername() : null);
                 testPs.setString(6, test instanceof Quiz quiz ? quiz.getTopic() : null);
+                testPs.setInt(7, test.isShowAnswersAfterExam() ? 1 : 0);
                 testPs.addBatch();
 
                 if (test instanceof Exam exam) {
@@ -1016,6 +1033,7 @@ public final class Database {
                     questionPs.setString(5, question.getContent());
                     questionPs.setString(6, question.getSolution());
                     questionPs.setString(7, question.getHint());
+                    questionPs.setString(8, question.getExplanation());
                     questionPs.addBatch();
 
                     if (question instanceof MultipleChoiceQuestion mcq) {

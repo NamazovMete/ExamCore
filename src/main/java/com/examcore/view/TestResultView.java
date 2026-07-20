@@ -1,6 +1,8 @@
 package com.examcore.view;
 
 import com.examcore.data.Database;
+import com.examcore.model.MultipleChoiceQuestion;
+import com.examcore.model.Question;
 import com.examcore.model.Student;
 import com.examcore.model.Submission;
 import com.examcore.model.Test;
@@ -104,6 +106,9 @@ public class TestResultView {
 
         VBox page = new VBox(24, header, classroomLabel, summaryCard, statsCard, tagCard, leaderboardTitle,
                 leaderboardCard);
+        if (test.isShowAnswersAfterExam() && mySubmission != null) {
+            page.getChildren().add(buildAnswerReviewCard(gradingService, test, mySubmission));
+        }
         VBox container = new VBox(28, nav, page);
         container.setPadding(new Insets(28, 40, 28, 40));
 
@@ -145,6 +150,62 @@ public class TestResultView {
             tagCard.getChildren().add(empty);
         }
         return tagCard;
+    }
+
+    private VBox buildAnswerReviewCard(GradingService gradingService, Test test, Submission mySubmission) {
+        VBox reviewCard = UiComponents.card(14);
+        Label reviewTitle = new Label("Review Answers");
+        reviewTitle.getStyleClass().add("section-title");
+        reviewCard.getChildren().add(reviewTitle);
+
+        Map<String, Boolean> perQuestionResults = gradingService.getPerQuestionResults(mySubmission);
+
+        int index = 1;
+        for (Question question : test.getQuestions()) {
+            VBox questionBox = new VBox(6);
+            questionBox.getStyleClass().add("list-row");
+
+            boolean correct = Boolean.TRUE.equals(perQuestionResults.get(question.getQuestionID()));
+            String studentAnswer = mySubmission.getAnswer(question.getQuestionID());
+
+            Label questionLabel = new Label(index + ". " + question.getContent());
+            questionLabel.setWrapText(true);
+            questionLabel.getStyleClass().add("row-title");
+
+            Label resultLabel = new Label((correct ? "Correct" : "Incorrect")
+                    + "   •   Your answer: " + (studentAnswer == null || studentAnswer.isBlank() ? "(no answer)" : studentAnswer)
+                    + "   •   Correct answer: " + question.getSolution());
+            resultLabel.setWrapText(true);
+            resultLabel.getStyleClass().add("row-subtitle");
+
+            questionBox.getChildren().addAll(questionLabel, resultLabel);
+
+            if (question instanceof MultipleChoiceQuestion mc) {
+                Label choicesLabel = new Label("Options: " + String.join(", ", mc.getChoices()));
+                choicesLabel.setWrapText(true);
+                choicesLabel.getStyleClass().add("muted-text");
+                questionBox.getChildren().add(choicesLabel);
+            }
+
+            String explanation = question.getExplanation();
+            if (explanation != null && !explanation.isBlank()) {
+                Label explanationLabel = new Label("Explanation: " + explanation);
+                explanationLabel.setWrapText(true);
+                explanationLabel.getStyleClass().add("muted-text");
+                questionBox.getChildren().add(explanationLabel);
+            }
+
+            reviewCard.getChildren().add(questionBox);
+            index++;
+        }
+
+        if (test.getQuestions().isEmpty()) {
+            Label empty = new Label("No questions on this test.");
+            empty.getStyleClass().add("muted-text");
+            reviewCard.getChildren().add(empty);
+        }
+
+        return reviewCard;
     }
 
     private Label columnLabel(String text, double width) {
