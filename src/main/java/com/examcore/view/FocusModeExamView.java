@@ -309,6 +309,9 @@ public class FocusModeExamView {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
+        saveStatusLabel.setText("Ready");
+        saveStatusLabel.getStyleClass().setAll("row-subtitle");
+
         timerLabel.getStyleClass().add("timer-pill");
         updateTimerLabel(lastSecondsRemaining == 0 ? test.getDurationLimit() * 60L : lastSecondsRemaining);
 
@@ -323,7 +326,7 @@ public class FocusModeExamView {
         Label studentLabel = new Label(UiComponents.displayName(student));
         studentLabel.getStyleClass().add("nav-username");
 
-        header.getChildren().addAll(title, focusWarningLabel, spacer, timerLabel, toggleButton, avatar, studentLabel);
+        header.getChildren().addAll(title, focusWarningLabel, spacer, saveStatusLabel, timerLabel, toggleButton, avatar, studentLabel);
         return header;
     }
 
@@ -364,7 +367,7 @@ public class FocusModeExamView {
                 }
                 radio.selectedProperty().addListener((obs, was, isNow) -> {
                     if (isNow) {
-                        controller.saveAnswer(question.getQuestionID(), choice);
+                        saveAnswerSafely(question.getQuestionID(), choice);
                     }
                 });
                 answerCard.getChildren().add(radio);
@@ -376,7 +379,7 @@ public class FocusModeExamView {
             TextField answerField = new TextField(submission.getAnswer(question.getQuestionID()));
             answerField.setPromptText("An integer value");
             answerField.textProperty().addListener((obs, oldVal, newVal) ->
-                    controller.saveAnswer(question.getQuestionID(), newVal));
+                    saveAnswerSafely(question.getQuestionID(), newVal));
             answerCard.getChildren().addAll(prompt, answerField);
         }
 
@@ -389,6 +392,36 @@ public class FocusModeExamView {
         VBox body = new VBox(24, columns);
         body.setPadding(new Insets(28, 40, 28, 40));
         return body;
+    }
+
+    private void saveAnswerSafely(String questionID, String answer) {
+        try {
+            controller.saveAnswer(questionID, answer);
+            saveStatusLabel.setText("Saved");
+            saveStatusLabel.setStyle("-fx-text-fill: #0B3B22;");
+        } catch (RuntimeException ex) {
+            saveStatusLabel.setText("Not saved - connection lost");
+            saveStatusLabel.setStyle("-fx-text-fill: #C62828;");
+        }
+    }
+
+    private void submitExamSafely() {
+        if (!controller.isDatabaseAvailable()) {
+            Alert alert = new Alert(Alert.AlertType.WARNING,
+                    "You need an internet connection to submit the exam. Please reconnect and try again.");
+            alert.setHeaderText("Cannot submit without connection");
+            alert.showAndWait();
+            return;
+        }
+
+        try {
+            controller.submitExam();
+        } catch (RuntimeException ex) {
+            Alert alert = new Alert(Alert.AlertType.WARNING,
+                    "Submission failed because the database connection is unavailable. Please reconnect and try again.");
+            alert.setHeaderText("Submission failed");
+            alert.showAndWait();
+        }
     }
 
     private HBox buildPager() {
@@ -429,7 +462,7 @@ public class FocusModeExamView {
         pager.getChildren().add(nextButton);
 
         var submitButton = UiComponents.primaryButton("Submit");
-        submitButton.setOnAction(e -> controller.submitExam());
+        submitButton.setOnAction(e -> submitExamSafely());
         pager.getChildren().add(submitButton);
 
         return pager;
