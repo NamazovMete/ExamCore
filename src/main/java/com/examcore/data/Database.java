@@ -603,6 +603,7 @@ public final class Database {
                 Test test = TestType.valueOf(rs.getString("test_type")) == TestType.EXAM
                         ? new Exam(testId, title, durationLimit)
                         : new Quiz(testId, title, durationLimit, rs.getString("topic"));
+                        test.setShowAnswersAfterExam(rs.getInt("show_answers_after_exam") != 0);
 
                 String ownerUsername = rs.getString("owner_username");
                 if (ownerUsername != null && usersByUsername.get(ownerUsername) instanceof Teacher teacher) {
@@ -662,6 +663,7 @@ public final class Database {
                         ? new MultipleChoiceQuestion(questionId, content, solution)
                         : new FillInBlankQuestion(questionId, content, solution);
                 question.setHint(rs.getString("hint"));
+                question.setExplanation(rs.getString("explanation"));
                 test.addQuestion(question);
             }
         } catch (SQLException e) {
