@@ -9,6 +9,7 @@ import java.util.Properties;
 
 
 import com.examcore.model.Admin;
+import java.util.concurrent.ExecutorService;
 import com.examcore.model.Classroom;
 import com.examcore.model.Exam;
 import com.examcore.model.Feedback;
@@ -26,7 +27,6 @@ import com.examcore.model.Test;
 import com.examcore.model.TestType;
 import com.examcore.model.User;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -45,7 +45,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -71,17 +70,6 @@ public final class Database {
     private final List<String> systemLogs = new ArrayList<>();
     private final LeaderBoard leaderBoard = new LeaderBoard();
 
-    private boolean dirty = true;
-    private boolean usersDirty = true;
-    private boolean testsDirty = true;
-    private boolean classroomsDirty = true;
-    private boolean teacherClassroomsDirty = true;
-    private boolean studentAssignedTestsDirty = true;
-    private boolean submissionsDirty = true;
-    private boolean feedbackDirty = true;
-    private boolean systemLogsDirty = true;
-    private boolean leaderboardDirty = true;
-    private boolean adminLogEntriesDirty = true;
 
      private static final String NEON_DATABASE_URL_ENV = "NEON_DATABASE_URL";
 
@@ -226,8 +214,7 @@ public final class Database {
         }
         usersByUsername.put(user.getUsername(), user);
         usersById.put(user.getId(), user);
-        markUsersDirty();
-        flush();
+        flushAsync();
     }
 
     public Optional<User> findUserByUsername(String username) {
@@ -252,8 +239,7 @@ public final class Database {
             throw new IllegalArgumentException("Test cannot be null");
         }
         testsById.put(test.getTestID(), test);
-        markTestsDirty();
-        flush();
+        flushAsync();
     }
 
     public Optional<Test> findTestById(String testID) {
@@ -270,8 +256,7 @@ public final class Database {
     public synchronized void removeTest(String testID) {
         if (testID != null) {
             testsById.remove(testID);
-            markTestsDirty();
-            flush();
+            flushAsync();
         }
     }
 
@@ -282,8 +267,7 @@ public final class Database {
             throw new IllegalArgumentException("Classroom cannot be null");
         }
         classroomsById.put(classroom.getClassID(), classroom);
-        markClassroomsDirty();
-        flush();
+        flushAsync();
     }
 
     public Optional<Classroom> findClassroomById(String classID) {
@@ -304,8 +288,7 @@ public final class Database {
         if (!submissions.contains(submission)) {
             submissions.add(submission);
         }
-        markSubmissionsDirty();
-        flush();
+        flushAsync();
     }
 
     public synchronized List<Submission> getSubmissionsForStudent(Student student) {
@@ -363,8 +346,7 @@ public final class Database {
         if (!feedbackList.contains(feedback)) {
             feedbackList.add(feedback);
         }
-        markFeedbackDirty();
-        flush();
+        flushAsync();
     }
 
     public synchronized List<Feedback> getFeedbackForTest(Test test) {
@@ -384,8 +366,7 @@ public final class Database {
             return;
         }
         systemLogs.add(LocalDateTime.now() + " - " + message);
-        markSystemLogsDirty();
-        flush();
+        flushAsync();
     }
 
     /** Most-recent-first view of every system-wide event recorded so far. */
@@ -397,65 +378,38 @@ public final class Database {
 
     // ---- Leaderboard ----
 
+    private final ExecutorService flushExecutor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "examcore-db-flush");
+        thread.setDaemon(true);
+        return thread;
+    });
+
     public LeaderBoard getLeaderBoard() {
         return leaderBoard;
     }
 
-
-    public synchronized void markDirty() {
-        dirty = true;
+    private void flushAsync() {
+        flushExecutor.submit(this::flush);
     }
 
     public synchronized void flush() {
-        if (!dirty) {
-            return;
-        }
+
         try {
             reconnectIfNeeded();
             connection.setAutoCommit(false);
             try {
-                if (usersDirty) {
-                    writeUsers();
-                }
-                if (testsDirty) {
-                    writeTests();
-                }
-                if (classroomsDirty) {
-                    writeClassrooms();
-                }
-                if (teacherClassroomsDirty) {
-                    writeTeacherClassrooms();
-                }
-                if (studentAssignedTestsDirty) {
-                    writeStudentAssignedTests();
-                }
-                if (submissionsDirty) {
-                    writeSubmissions();
-                }
-                if (feedbackDirty) {
-                    writeFeedback();
-                }
-                if (systemLogsDirty) {
-                    writeSystemLogs();
-                }
-                if (leaderboardDirty) {
-                    writeLeaderboard();
-                }
-                if (adminLogEntriesDirty) {
-                    writeAdminLogEntries();
-                }
+                writeUsers();
+                writeTests();
+                writeClassrooms();
+                writeTeacherClassrooms();
+                writeStudentAssignedTests();
+                writeSubmissions();
+                writeFeedback();
+                writeSystemLogs();
+                writeLeaderboard();
+                writeAdminLogEntries();
                 connection.commit();
-                dirty = false;
-                usersDirty = false;
-                testsDirty = false;
-                classroomsDirty = false;
-                teacherClassroomsDirty = false;
-                studentAssignedTestsDirty = false;
-                submissionsDirty = false;
-                feedbackDirty = false;
-                systemLogsDirty = false;
-                leaderboardDirty = false;
-                adminLogEntriesDirty = false;
+
             } catch (SQLException e) {
                 try {
                     connection.rollback();
@@ -481,7 +435,6 @@ public final class Database {
         feedbackList.clear();
         systemLogs.clear();
         leaderBoard.getRankings().keySet().forEach(s -> leaderBoard.recordScore(s, 0));
-        markAllDirty();
         seedData();
         flush();
     }
@@ -531,7 +484,18 @@ public final class Database {
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize the ExamCore schema", e);
         }
+        addColumnIfMissing("tests", "show_answers_after_exam", "INTEGER");
+        addColumnIfMissing("questions", "explanation", "TEXT");
+
     }
+
+    private void addColumnIfMissing(String table, String column, String type) {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + type);
+        } catch (SQLException e) {
+        }
+    }
+
 
     private boolean hasPersistedData() {
         try (Statement statement = connection.createStatement();
@@ -1253,53 +1217,6 @@ public final class Database {
             }
             ps.executeBatch();
         }
-    }
-
-    private void markUsersDirty() {
-        dirty = true;
-        usersDirty = true;
-    }
-
-    private void markTestsDirty() {
-        dirty = true;
-        testsDirty = true;
-    }
-
-    private void markClassroomsDirty() {
-        dirty = true;
-        classroomsDirty = true;
-        teacherClassroomsDirty = true;
-        studentAssignedTestsDirty = true;
-    }
-
-    private void markSubmissionsDirty() {
-        dirty = true;
-        submissionsDirty = true;
-    }
-
-    private void markFeedbackDirty() {
-        dirty = true;
-        feedbackDirty = true;
-    }
-
-    private void markSystemLogsDirty() {
-        dirty = true;
-        systemLogsDirty = true;
-        adminLogEntriesDirty = true;
-    }
-
-    private void markAllDirty() {
-        dirty = true;
-        usersDirty = true;
-        testsDirty = true;
-        classroomsDirty = true;
-        teacherClassroomsDirty = true;
-        studentAssignedTestsDirty = true;
-        submissionsDirty = true;
-        feedbackDirty = true;
-        systemLogsDirty = true;
-        leaderboardDirty = true;
-        adminLogEntriesDirty = true;
     }
 
     private void executeUpdate(String sql) throws SQLException {
