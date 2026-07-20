@@ -3,13 +3,18 @@ package com.examcore.controller;
 import com.examcore.data.Database;
 import com.examcore.model.Feedback;
 import com.examcore.model.Student;
-import com.examcore.model.Teacher;
+import com.examcore.model.User;
 import com.examcore.model.Test;
 import com.examcore.util.ProfanityFilter;
 
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Bridges the exam-runner "give feedback" action and the teacher-facing
+ * feedback list to the model: students submit free-text feedback on a
+ * completed test, teachers browse and mark it read.
+ */
 public class FeedbackController {
 
     private final Database database;
@@ -50,8 +55,8 @@ public class FeedbackController {
         return feedback;
     }
 
-    //report
-    public void reportFeedback(Teacher reportedBy, Feedback feedback) {
+    /** Flags a piece of feedback as inappropriate, surfacing it on the admin's System Logs page. */
+    public void reportFeedback(User reportedBy, Feedback feedback) {
         if (reportedBy == null) {
             throw new IllegalArgumentException("Reporter cannot be null");
         }
