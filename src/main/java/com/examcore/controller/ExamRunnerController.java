@@ -223,11 +223,17 @@ public class ExamRunnerController {
             return 0;
         }
         currentSubmission.recordFocusLoss();
-        database.saveSubmission(currentSubmission);
         int count = currentSubmission.getFocusLossCount();
         logState("Focus lost / window left during '" + currentTest.getTestID() + "' (occurrence #" + count + ")");
-        database.logSystemEvent(currentStudent.getUsername() + " left the Focus Mode window during '"
-                + currentTest.getTitle() + "' (occurrence #" + count + ")");
+
+        try {
+            database.saveSubmission(currentSubmission);
+            database.logSystemEvent(currentStudent.getUsername() + " left the Focus Mode window during '"
+                    + currentTest.getTitle() + "' (occurrence #" + count + ")");
+        } catch (RuntimeException ex) {
+            logState("Could not persist focus-loss event because the database connection is unavailable");
+        }
+
         return count;
     }
 

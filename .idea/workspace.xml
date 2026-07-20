@@ -5,7 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5a651839-a073-42ac-b074-4fa31b82160e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/examcore/view/FocusModeExamView.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/examcore/view/FocusModeExamView.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -126,7 +126,7 @@
       <option name="presentableId" value="Default" />
       <updated>1784462277126</updated>
       <workItem from="1784544342784" duration="293000" />
-      <workItem from="1784544734518" duration="8766000" />
+      <workItem from="1784544734518" duration="10208000" />
     </task>
     <servers />
   </component>

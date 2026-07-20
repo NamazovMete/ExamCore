@@ -177,8 +177,9 @@ public class FocusModeExamView {
             timerLabel.setText("---");
             return;
         }
-        long minutes = secondsRemaining / 60;
-        long seconds = secondsRemaining % 60;
+        long safeSecondsRemaining = Math.max(0, secondsRemaining);
+        long minutes = safeSecondsRemaining / 60;
+        long seconds = safeSecondsRemaining % 60;
         timerLabel.setText(String.format("%d:%02d left", minutes, seconds));
     }
 

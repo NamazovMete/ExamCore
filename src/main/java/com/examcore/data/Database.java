@@ -59,7 +59,8 @@ public final class Database {
 
     private static final Database INSTANCE = createPersistentInstance();
 
-    private final Connection connection;
+    private Connection connection;
+    private final String neonUrl;
 
     private final Map<String, User> usersByUsername = new ConcurrentHashMap<>();
     private final Map<Integer, User> usersById = new ConcurrentHashMap<>();
@@ -89,11 +90,12 @@ public final class Database {
 
 
     public Database() {
-        this(openEphemeralConnection(), false);
+        this(openEphemeralConnection(), false, null);
     }
 
-    private Database(Connection connection, boolean persistent) {
+    private Database(Connection connection, boolean persistent, String neonUrl) {
         this.connection = connection;
+        this.neonUrl = neonUrl;
         initializeSchema();
         if (hasPersistedData()) {
             loadFromDisk();
@@ -112,10 +114,23 @@ public final class Database {
 
     public synchronized boolean isConnectionAvailable() {
         try {
-            return connection != null && connection.isValid(2);
+            reconnectIfNeeded();
+            return connection != null && !connection.isClosed() && connection.isValid(2);
         } catch (SQLException e) {
             return false;
         }
+    }
+
+    private synchronized void reconnectIfNeeded() throws SQLException {
+        if (connection != null && !connection.isClosed() && connection.isValid(2)) {
+            return;
+        }
+
+        if (neonUrl == null || neonUrl.isBlank()) {
+            return;
+        }
+
+        connection = openNeonConnection(neonUrl);
     }
 
     private static Database createPersistentInstance() {
@@ -124,7 +139,7 @@ public final class Database {
             Connection connection = (neonUrl != null && !neonUrl.isBlank())
                     ? openNeonConnection(neonUrl)
                     : openLocalSqliteConnection();
-            return new Database(connection, true);
+            return new Database(connection, true, neonUrl);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to initialize the persistent ExamCore database", e);
         }
@@ -370,6 +385,7 @@ public final class Database {
 
     public synchronized void flush() {
         try {
+            reconnectIfNeeded();
             connection.setAutoCommit(false);
             try {
                 writeUsers();
@@ -384,7 +400,11 @@ public final class Database {
                 writeAdminLogEntries();
                 connection.commit();
             } catch (SQLException e) {
-                connection.rollback();
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackError) {
+                    e.addSuppressed(rollbackError);
+                }
                 throw new IllegalStateException("Failed to persist ExamCore data", e);
             } finally {
                 connection.setAutoCommit(true);
