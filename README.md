@@ -57,27 +57,5 @@ flowchart LR
 | **View Layer** | Manages the visual interface using JavaFX. Includes specific screens for different roles, like `StudentDashboardView` and `FocusModeExamView`. |
 | **Controller Layer** | Acts as the middleman (like `AuthenticationController` or `ExamRunnerController`). Listens to what the user does in the View and calls the right methods in the Model. |
 
-### Class Responsibilities
-
-To keep the MVC structure clean and follow the **Single Responsibility Principle (SRP)**, ExamCore uses a clean hierarchy. Inheritance manages user roles efficiently: universal credentials (`userID`, `passwordHash`) are centralized in an abstract `User` class, while role-specific data (e.g., a Teacher's `managedClassrooms`) is strictly confined to subclasses.
-
-```mermaid
-classDiagram
-    class User {
-        <<abstract>>
-        -String userID
-        -String passwordHash
-    }
-    class Student
-    class Teacher {
-        -List~Classroom~ managedClassrooms
-    }
-    class Admin
-
-    User <|-- Student
-    User <|-- Teacher
-    User <|-- Admin
-```
-
 > [!TIP]
 > Because role-specific fields live only on their own subclass, adding a new role later means extending `User`, not touching existing role logic.
