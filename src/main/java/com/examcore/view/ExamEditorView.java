@@ -385,6 +385,11 @@ public class ExamEditorView {
             return;
         }
 
+        String explanation = explanationCheckBox.isSelected() ? explanationArea.getText() : null;
+        if (explanation != null && explanation.isBlank()) {
+            explanation = null;
+        }
+
         try {
             if (mcTypeRadio.isSelected()) {
                 List<String> choices = choiceFields.stream().map(TextField::getText).toList();
@@ -402,9 +407,9 @@ public class ExamEditorView {
                 String correctChoice = choices.get(correctIndex);
                 if (editingQuestionId != null) {
                     controller.updateMultipleChoiceQuestion(test, editingQuestionId, content, choices, correctChoice,
-                            currentTags);
+                            currentTags, explanation);
                 } else {
-                    controller.addMultipleChoiceQuestion(test, content, choices, correctChoice, currentTags);
+                    controller.addMultipleChoiceQuestion(test, content, choices, correctChoice, currentTags, explanation);
                 }
             } else {
                 String correctAnswer = shortAnswerField.getText();
@@ -414,9 +419,9 @@ public class ExamEditorView {
                 }
                 if (editingQuestionId != null) {
                     controller.updateShortAnswerQuestion(test, editingQuestionId, content, correctAnswer,
-                            currentTags);
+                            currentTags, explanation);
                 } else {
-                    controller.addShortAnswerQuestion(test, content, correctAnswer, currentTags);
+                    controller.addShortAnswerQuestion(test, content, correctAnswer, currentTags, explanation);
                 }
             }
         } catch (IllegalArgumentException ex) {
@@ -436,6 +441,8 @@ public class ExamEditorView {
         rebuildChoiceRows(null, null);
         shortAnswerField.clear();
         mcTypeRadio.setSelected(true);
+        explanationCheckBox.setSelected(false);
+        explanationArea.clear();
         saveQuestionButton.setText("+ Add question");
         cancelEditButton.setVisible(false);
         cancelEditButton.setManaged(false);
@@ -456,6 +463,11 @@ public class ExamEditorView {
             shortAnswerTypeRadio.setSelected(true);
             shortAnswerField.setText(question.getSolution());
         }
+
+        explanationCheckBox.setSelected(question.hasExplanation());
+        explanationArea.setText(question.hasExplanation() ? question.getExplanation() : "");
+        explanationArea.setVisible(question.hasExplanation());
+        explanationArea.setManaged(question.hasExplanation());
 
         saveQuestionButton.setText("Update question");
         cancelEditButton.setVisible(true);
