@@ -37,3 +37,4 @@ aptal
 mal
 serefsiz
 kahpe
+KÜFÜR
