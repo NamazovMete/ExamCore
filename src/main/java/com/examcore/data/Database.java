@@ -300,10 +300,22 @@ public final class Database {
         return new ArrayList<>(submissions);
     }
 
-    /** The student's graded attempt at this test, if they have completed one. */
     public synchronized Optional<Submission> findSubmission(Student student, Test test) {
         for (Submission s : submissions) {
             if (s.getStudent().equals(student) && s.getTest().equals(test) && s.isGraded()) {
+                return Optional.of(s);
+            }
+        }
+        return Optional.empty();
+    }
+
+
+    public synchronized Optional<Submission> findInProgressSubmission(Student student, Test test) {
+        for (Submission s : submissions) {
+            if (s.getStudent().equals(student)
+                    && s.getTest().equals(test)
+                    && !s.isSubmitted()
+                    && !s.isGraded()) {
                 return Optional.of(s);
             }
         }

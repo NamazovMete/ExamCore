@@ -8,6 +8,7 @@ import com.examcore.model.TestType;
 import com.examcore.service.GradingService;
 import com.examcore.service.TimerService;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -115,6 +116,50 @@ public class ExamRunnerController {
         if (l != null) {
             l.onExamStarted(test, test.getDurationLimit());
         }
+        return currentSubmission;
+    }
+
+    public synchronized Submission resumeExam(String testID, Student student) {
+        if (active) {
+            throw new IllegalStateException("An exam is already in progress");
+        }
+        if (testID == null || testID.isBlank()) {
+            throw new IllegalArgumentException("Test ID cannot be blank");
+        }
+        if (student == null) {
+            throw new IllegalArgumentException("Student cannot be null");
+        }
+
+        Test test = database.findTestById(testID)
+                .orElseThrow(() -> new NoSuchElementException("Test not found: " + testID));
+
+        Submission submission = database.findInProgressSubmission(student, test)
+                .orElseThrow(() -> new NoSuchElementException("No unfinished attempt found"));
+
+        long totalSeconds = test.getDurationLimit() * 60L;
+        long elapsedSeconds = Duration.between(submission.getStartedAt(), LocalDateTime.now()).getSeconds();
+        long remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
+
+        currentStudent = student;
+        currentTest = test;
+        currentSubmission = submission;
+        active = true;
+
+        logState("Resumed " + test.getTestType() + " '" + test.getTestID() + "' for student '"
+                + student.getUsername() + "'");
+
+        if (remainingSeconds <= 0) {
+            return finishExam(true);
+        }
+
+        timerService.startSeconds(remainingSeconds);
+
+        ExamRunnerListener l = listener;
+        if (l != null) {
+            l.onExamStarted(test, (int) Math.ceil(remainingSeconds / 60.0));
+            l.onTick(remainingSeconds);
+        }
+
         return currentSubmission;
     }
 
