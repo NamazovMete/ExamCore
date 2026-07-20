@@ -335,10 +335,10 @@ public class TeacherDashboardView {
         int tabIndex = type == TestType.QUIZ ? 2 : 1;
         ExamEditorView editorView = new ExamEditorView(examAuthoringController, teacher, NAV_TABS, tabIndex, teacher,
                 existingTest, type, () -> {
-                    activeTab = tabIndex;
-                    onProfile = false;
-                    render();
-                });
+            activeTab = tabIndex;
+            onProfile = false;
+            render();
+        });
         root.setCenter(editorView.getRoot());
     }
 
@@ -466,12 +466,12 @@ public class TeacherDashboardView {
     }
 
     private void openFeedbackList(Test test) {
-        FeedbackListView feedbackView = new FeedbackListView(database, feedbackController, teacher, test, NAV_TABS,
+        FeedbackListView feedbackView = new FeedbackListView(database, feedbackController, teacher, test, NAV_TABS, 3,
                 () -> openAnalytics(test));
         root.setCenter(feedbackView.getRoot());
     }
 
-    // Exam Violations 
+    // Exam Violations
 
     private VBox buildViolationsPage() {
         HBox header = new HBox(16);
