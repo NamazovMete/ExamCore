@@ -5,7 +5,7 @@ import com.examcore.data.Database;
 import com.examcore.model.Classroom;
 import com.examcore.model.Feedback;
 import com.examcore.model.Student;
-import com.examcore.model.Teacher;
+import com.examcore.model.User;
 import com.examcore.model.Test;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
 public class FeedbackListView {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd.MM.yyyy");
@@ -29,16 +30,19 @@ public class FeedbackListView {
     private final BorderPane root = new BorderPane();
     private final Database database;
     private final FeedbackController feedbackController;
-    private final Teacher teacher;
+    private final User navUser;
+    private final int activeNavTab; final Teacher teacher;
+    
     private final Test test;
     private final List<String> navTabs;
     private final Runnable onBack;
 
-    public FeedbackListView(Database database, FeedbackController feedbackController, Teacher teacher, Test test,
-                             List<String> navTabs, Runnable onBack) {
+    public FeedbackListView(Database database, FeedbackController feedbackController, User navUser, Test test,
+                            List<String> navTabs, int activeNavTab, Runnable onBack) {
         this.database = database;
         this.feedbackController = feedbackController;
-        this.teacher = teacher;
+        this.navUser = navUser;
+        this.activeNavTab = activeNavTab;
         this.test = test;
         this.navTabs = navTabs;
         this.onBack = onBack;
@@ -51,7 +55,7 @@ public class FeedbackListView {
     }
 
     private void render() {
-        HBox nav = UiComponents.navBar(navTabs, 3, teacher, idx -> onBack.run(), onBack);
+        HBox nav = UiComponents.navBar(navTabs, activeNavTab, navUser, idx -> onBack.run(), onBack);
 
         HBox header = new HBox(16);
         header.setAlignment(Pos.CENTER_LEFT);
@@ -112,7 +116,7 @@ public class FeedbackListView {
                 confirm.setHeaderText("Report Feedback");
                 confirm.showAndWait().ifPresent(button -> {
                     if (button == ButtonType.YES) {
-                        feedbackController.reportFeedback(teacher, feedback);
+                        feedbackController.reportFeedback(navUser, feedback);
                         render();
                     }
                 });
