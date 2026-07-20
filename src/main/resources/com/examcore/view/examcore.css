@@ -82,6 +82,10 @@
     -fx-background-radius: 20;
 }
 
+.card RadioButton {
+    -fx-text-fill: #111111;
+}
+
 .list-row {
     -fx-background-color: #F0F1F3;
     -fx-background-radius: 16;
