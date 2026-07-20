@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -71,6 +72,13 @@ public final class Database {
     private final List<String> systemLogs = new ArrayList<>();
     private final LeaderBoard leaderBoard = new LeaderBoard();
 
+    /** Runs persistence (flush) in the background so callers (e.g. the UI thread) never block on the Neon round-trip. */
+    private final ExecutorService flushExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "examcore-db-flush");
+        t.setDaemon(true);
+        return t;
+    });
+
     private boolean dirty = true;
     private boolean usersDirty = true;
     private boolean testsDirty = true;
@@ -82,6 +90,10 @@ public final class Database {
     private boolean systemLogsDirty = true;
     private boolean leaderboardDirty = true;
     private boolean adminLogEntriesDirty = true;
+
+
+    
+
 
      private static final String NEON_DATABASE_URL_ENV = "NEON_DATABASE_URL";
 
@@ -227,7 +239,7 @@ public final class Database {
         usersByUsername.put(user.getUsername(), user);
         usersById.put(user.getId(), user);
         markUsersDirty();
-        flush();
+        scheduleFlush();
     }
 
     public Optional<User> findUserByUsername(String username) {
@@ -253,7 +265,7 @@ public final class Database {
         }
         testsById.put(test.getTestID(), test);
         markTestsDirty();
-        flush();
+        scheduleFlush();
     }
 
     public Optional<Test> findTestById(String testID) {
@@ -271,7 +283,7 @@ public final class Database {
         if (testID != null) {
             testsById.remove(testID);
             markTestsDirty();
-            flush();
+            scheduleFlush();
         }
     }
 
@@ -283,7 +295,7 @@ public final class Database {
         }
         classroomsById.put(classroom.getClassID(), classroom);
         markClassroomsDirty();
-        flush();
+        scheduleFlush();
     }
 
     public Optional<Classroom> findClassroomById(String classID) {
@@ -305,7 +317,7 @@ public final class Database {
             submissions.add(submission);
         }
         markSubmissionsDirty();
-        flush();
+        scheduleFlush();
     }
 
     public synchronized List<Submission> getSubmissionsForStudent(Student student) {
@@ -364,7 +376,7 @@ public final class Database {
             feedbackList.add(feedback);
         }
         markFeedbackDirty();
-        flush();
+        scheduleFlush();
     }
 
     public synchronized List<Feedback> getFeedbackForTest(Test test) {
@@ -385,7 +397,7 @@ public final class Database {
         }
         systemLogs.add(LocalDateTime.now() + " - " + message);
         markSystemLogsDirty();
-        flush();
+        scheduleFlush();
     }
 
     /** Most-recent-first view of every system-wide event recorded so far. */
@@ -401,6 +413,17 @@ public final class Database {
         return leaderBoard;
     }
 
+
+    /** Persists asynchronously so the calling thread (e.g. the UI) never blocks on the Neon round-trip. */
+    private void scheduleFlush() {
+        flushExecutor.submit(() -> {
+            try {
+                flush();
+            } catch (RuntimeException e) {
+                System.err.println("Background flush failed: " + e.getMessage());
+            }
+        });
+    }
 
     public synchronized void markDirty() {
         dirty = true;
