@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import com.examcore.controller.AdminController;
 import com.examcore.controller.ExamAuthoringController;
+import com.examcore.controller.FeedbackController;
 import com.examcore.data.Database;
 import com.examcore.model.Admin;
 import com.examcore.model.Classroom;
@@ -38,6 +39,7 @@ public class AdminDashboardView {
     private final Runnable onLogout;
     private final AdminController adminController;
     private final ExamAuthoringController examAuthoringController;
+    private final FeedbackController feedbackController;
     private final BorderPane root;
 
     private int activeTab = 0;
@@ -48,6 +50,7 @@ public class AdminDashboardView {
         this.onLogout = onLogout;
         this.adminController = new AdminController(database);
         this.examAuthoringController = new ExamAuthoringController(database);
+        this.feedbackController = new FeedbackController(database);
         this.root = new BorderPane();
         root.getStyleClass().add("app-bg");
         render();
@@ -317,9 +320,9 @@ public class AdminDashboardView {
         int tabIndex = test.getTestType() == TestType.QUIZ ? 3 : 2;
         ExamEditorView editorView = new ExamEditorView(examAuthoringController, admin, NAV_TABS, tabIndex, null, test,
                 test.getTestType(), () -> {
-                    activeTab = tabIndex;
-                    render();
-                });
+            activeTab = tabIndex;
+            render();
+        });
         root.setCenter(editorView.getRoot());
     }
 
@@ -328,8 +331,15 @@ public class AdminDashboardView {
         AnalyticsDetailView analyticsView = new AnalyticsDetailView(database, admin, NAV_TABS, tabIndex, test, () -> {
             activeTab = tabIndex;
             render();
-        }, null);
+        }, this::openAdminFeedbackList);
         root.setCenter(analyticsView.getRoot());
+    }
+
+    private void openAdminFeedbackList(Test test) {
+        int tabIndex = test.getTestType() == TestType.QUIZ ? 3 : 2;
+        FeedbackListView feedbackView = new FeedbackListView(database, feedbackController, admin, test, NAV_TABS,
+                tabIndex, () -> openAdminAnalytics(test));
+        root.setCenter(feedbackView.getRoot());
     }
 
     private void confirmDeleteTest(Test test) {
