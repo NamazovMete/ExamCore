@@ -110,6 +110,14 @@ public final class Database {
         return INSTANCE;
     }
 
+    public synchronized boolean isConnectionAvailable() {
+        try {
+            return connection != null && connection.isValid(2);
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
     private static Database createPersistentInstance() {
         try {
             String neonUrl = System.getenv(NEON_DATABASE_URL_ENV);
