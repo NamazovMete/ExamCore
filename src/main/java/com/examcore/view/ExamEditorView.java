@@ -279,7 +279,14 @@ public class ExamEditorView {
 
         var saveExitButton = UiComponents.greenButton("Save & Exit");
         saveExitButton.setMaxWidth(Double.MAX_VALUE);
-        saveExitButton.setOnAction(e -> onDone.run());
+        saveExitButton.setOnAction(e -> {
+            if (test == null || test.getQuestions().isEmpty()) {
+                showError("Add at least one question before exiting. Students can't take a "
+                        + typeLabel().toLowerCase() + " with no questions.");
+                return;
+            }
+            onDone.run();
+        });
 
         sidePanel.getChildren().addAll(typeLabel, mcTypeRadio, shortAnswerTypeRadio, tagsLabel, tagChipsPane,
                 tagInputRow, saveQuestionButton, cancelEditButton, saveExitButton);

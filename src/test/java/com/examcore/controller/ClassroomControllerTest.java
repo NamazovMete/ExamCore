@@ -3,6 +3,7 @@ package com.examcore.controller;
 import com.examcore.data.Database;
 import com.examcore.model.Classroom;
 import com.examcore.model.Exam;
+import com.examcore.model.MultipleChoiceQuestion;
 import com.examcore.model.Student;
 import com.examcore.model.Teacher;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,11 +87,20 @@ class ClassroomControllerTest {
         Classroom classroom = controller.createClassroom(teacher, "CS999-1", "CS999-1");
         controller.addStudent(teacher, classroom, student);
         Exam exam = new Exam("EXAM-X", "Exam X", 60);
+        exam.addQuestion(new MultipleChoiceQuestion("EXAM-X-Q1", "2+2=?", "4"));
 
         controller.assignTest(teacher, exam, classroom);
 
         assertTrue(classroom.getAssignedExams().contains(exam));
         assertTrue(student.getAssignedExams().contains(exam));
+    }
+    @Test
+    void assignTest_noQuestions_throws() {
+        Classroom classroom = controller.createClassroom(teacher, "CS999-1", "CS999-1");
+        Exam exam = new Exam("EXAM-EMPTY", "Empty Exam", 60);
+
+        assertThrows(IllegalStateException.class, () -> controller.assignTest(teacher, exam, classroom));
+        assertFalse(classroom.getAssignedExams().contains(exam));
     }
 
     @Test

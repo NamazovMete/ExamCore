@@ -90,6 +90,15 @@ class ExamRunnerControllerTest {
     }
 
     @Test
+        void startExam_noQuestions_throwsIllegalStateException() {
+        Exam emptyExam = new Exam("EXAM-EMPTY", "Empty Exam", 60);
+        database.saveTest(emptyExam);
+
+        assertThrows(IllegalStateException.class, () -> controller.startExam("EXAM-EMPTY", student));
+        assertFalse(controller.isActive());
+    }
+
+    @Test
     void startExam_alreadyCompletedByStudent_throwsIllegalStateException() {
         controller.startExam("EXAM-1", student);
         controller.submitExam();
