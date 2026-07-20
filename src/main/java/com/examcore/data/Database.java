@@ -497,12 +497,12 @@ public final class Database {
                         "grade TEXT, is_verified INTEGER, admin_level INTEGER)",
                 "CREATE TABLE IF NOT EXISTS tests (" +
                         "test_id TEXT PRIMARY KEY, test_type TEXT NOT NULL, title TEXT, duration_limit INTEGER, " +
-                        "owner_username TEXT, topic TEXT)",
+                        "owner_username TEXT, topic TEXT, show_answers_after_exam INTEGER)",
                 "CREATE TABLE IF NOT EXISTS test_topics (test_id TEXT, position INTEGER, topic TEXT)",
                 "CREATE TABLE IF NOT EXISTS test_tags (test_id TEXT, position INTEGER, tag TEXT)",
                 "CREATE TABLE IF NOT EXISTS questions (" +
                         "test_id TEXT, question_id TEXT, position INTEGER, type TEXT, content TEXT, " +
-                        "solution TEXT, hint TEXT, PRIMARY KEY (test_id, question_id))",
+                        "solution TEXT, hint TEXT, explanation TEXT, PRIMARY KEY (test_id, question_id))",
                 "CREATE TABLE IF NOT EXISTS question_tags (test_id TEXT, question_id TEXT, position INTEGER, tag TEXT)",
                 "CREATE TABLE IF NOT EXISTS question_choices (test_id TEXT, question_id TEXT, position INTEGER, choice TEXT)",
                 "CREATE TABLE IF NOT EXISTS classrooms (class_id TEXT PRIMARY KEY, class_name TEXT)",
