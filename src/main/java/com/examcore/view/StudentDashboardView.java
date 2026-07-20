@@ -228,7 +228,8 @@ public class StudentDashboardView {
             viewButton.setOnAction(e -> openTestResult(test));
             row.getChildren().addAll(textBox, spacer, viewButton);
         } else {
-            var startButton = UiComponents.primaryButton("Start  ›");
+            boolean inProgress = database.findInProgressSubmission(student, test).isPresent();
+            var startButton = UiComponents.primaryButton(inProgress ? "Continue  ›" : "Start  ›");
             startButton.setOnAction(e -> startTest(test));
             row.getChildren().addAll(textBox, spacer, startButton);
         }
@@ -266,7 +267,11 @@ public class StudentDashboardView {
         ExamRunnerController controller = new ExamRunnerController(database, gradingService, timerService);
 
         try {
-            controller.startExam(test.getTestID(), student);
+            if (database.findInProgressSubmission(student, test).isPresent()) {
+                controller.resumeExam(test.getTestID(), student);
+            } else {
+                controller.startExam(test.getTestID(), student);
+            }
         } catch (IllegalStateException ex) {
             controller.shutdown();
             Alert alert = new Alert(Alert.AlertType.INFORMATION, ex.getMessage());
@@ -275,6 +280,7 @@ public class StudentDashboardView {
             render();
             return;
         }
+
         FeedbackController feedbackController = new FeedbackController(database);
         FocusModeExamView examView = new FocusModeExamView(controller, feedbackController, test, student,
                 (submission, score, timedOut) -> {
@@ -282,7 +288,7 @@ public class StudentDashboardView {
                     render();
                 });
         root.setCenter(examView.getRoot());
-    }   
+    }
 
 
     // leaderboard 

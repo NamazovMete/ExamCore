@@ -8,6 +8,7 @@ import com.examcore.model.TestType;
 import com.examcore.service.GradingService;
 import com.examcore.service.TimerService;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -118,6 +119,50 @@ public class ExamRunnerController {
         return currentSubmission;
     }
 
+    public synchronized Submission resumeExam(String testID, Student student) {
+        if (active) {
+            throw new IllegalStateException("An exam is already in progress");
+        }
+        if (testID == null || testID.isBlank()) {
+            throw new IllegalArgumentException("Test ID cannot be blank");
+        }
+        if (student == null) {
+            throw new IllegalArgumentException("Student cannot be null");
+        }
+
+        Test test = database.findTestById(testID)
+                .orElseThrow(() -> new NoSuchElementException("Test not found: " + testID));
+
+        Submission submission = database.findInProgressSubmission(student, test)
+                .orElseThrow(() -> new NoSuchElementException("No unfinished attempt found"));
+
+        long totalSeconds = test.getDurationLimit() * 60L;
+        long elapsedSeconds = Duration.between(submission.getStartedAt(), LocalDateTime.now()).getSeconds();
+        long remainingSeconds = Math.max(0, totalSeconds - elapsedSeconds);
+
+        currentStudent = student;
+        currentTest = test;
+        currentSubmission = submission;
+        active = true;
+
+        logState("Resumed " + test.getTestType() + " '" + test.getTestID() + "' for student '"
+                + student.getUsername() + "'");
+
+        if (remainingSeconds <= 0) {
+            return finishExam(true);
+        }
+
+        timerService.startSeconds(remainingSeconds);
+
+        ExamRunnerListener l = listener;
+        if (l != null) {
+            l.onExamStarted(test, (int) Math.ceil(remainingSeconds / 60.0));
+            l.onTick(remainingSeconds);
+        }
+
+        return currentSubmission;
+    }
+
     public synchronized void saveAnswer(String questionID, String answer) {
         ensureActive();
         if (questionID == null || questionID.isBlank()) {
@@ -178,11 +223,17 @@ public class ExamRunnerController {
             return 0;
         }
         currentSubmission.recordFocusLoss();
-        database.saveSubmission(currentSubmission);
         int count = currentSubmission.getFocusLossCount();
         logState("Focus lost / window left during '" + currentTest.getTestID() + "' (occurrence #" + count + ")");
-        database.logSystemEvent(currentStudent.getUsername() + " left the Focus Mode window during '"
-                + currentTest.getTitle() + "' (occurrence #" + count + ")");
+
+        try {
+            database.saveSubmission(currentSubmission);
+            database.logSystemEvent(currentStudent.getUsername() + " left the Focus Mode window during '"
+                    + currentTest.getTitle() + "' (occurrence #" + count + ")");
+        } catch (RuntimeException ex) {
+            logState("Could not persist focus-loss event because the database connection is unavailable");
+        }
+
         return count;
     }
 
@@ -211,6 +262,10 @@ public class ExamRunnerController {
 
     public boolean isActive() {
         return active;
+    }
+
+    public boolean isDatabaseAvailable() {
+        return database.isConnectionAvailable();
     }
 
     public Optional<Submission> getCurrentSubmission() {
