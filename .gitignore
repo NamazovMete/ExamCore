@@ -15,4 +15,8 @@ buildNumber.properties
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+<<<<<<< HEAD
+=======
+
+>>>>>>> 6bec442 (Stop tracking .idea folder to avoid leaking local IDE config)
 .idea/
