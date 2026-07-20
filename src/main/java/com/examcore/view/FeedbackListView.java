@@ -31,7 +31,7 @@ public class FeedbackListView {
     private final Database database;
     private final FeedbackController feedbackController;
     private final User navUser;
-    private final int activeNavTab; final Teacher teacher;
+    private final int activeNavTab;
     
     private final Test test;
     private final List<String> navTabs;
