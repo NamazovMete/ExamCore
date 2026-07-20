@@ -9,7 +9,6 @@ import java.util.Properties;
 
 
 import com.examcore.model.Admin;
-import java.util.concurrent.ExecutorService;
 import com.examcore.model.Classroom;
 import com.examcore.model.Exam;
 import com.examcore.model.Feedback;
@@ -27,6 +26,7 @@ import com.examcore.model.Test;
 import com.examcore.model.TestType;
 import com.examcore.model.User;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -45,6 +45,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -70,13 +71,17 @@ public final class Database {
     private final List<String> systemLogs = new ArrayList<>();
     private final LeaderBoard leaderBoard = new LeaderBoard();
 
-    private final Object ioLock = new Object();
-    private volatile boolean usersDirty;
-    private volatile boolean testsDirty;
-    private volatile boolean classroomsDirty;
-    private volatile boolean submissionsDirty;
-    private volatile boolean feedbackDirty;
-
+    private boolean dirty = true;
+    private boolean usersDirty = true;
+    private boolean testsDirty = true;
+    private boolean classroomsDirty = true;
+    private boolean teacherClassroomsDirty = true;
+    private boolean studentAssignedTestsDirty = true;
+    private boolean submissionsDirty = true;
+    private boolean feedbackDirty = true;
+    private boolean systemLogsDirty = true;
+    private boolean leaderboardDirty = true;
+    private boolean adminLogEntriesDirty = true;
 
      private static final String NEON_DATABASE_URL_ENV = "NEON_DATABASE_URL";
 
@@ -119,18 +124,16 @@ public final class Database {
         return INSTANCE;
     }
 
-    public boolean isConnectionAvailable() {
-        synchronized (ioLock) {
-            try {
-                reconnectIfNeeded();
-                return connection != null && !connection.isClosed() && connection.isValid(2);
-            } catch (SQLException e) {
-                return false;
-            }
+    public synchronized boolean isConnectionAvailable() {
+        try {
+            reconnectIfNeeded();
+            return connection != null && !connection.isClosed() && connection.isValid(2);
+        } catch (SQLException e) {
+            return false;
         }
     }
 
-    private void reconnectIfNeeded() throws SQLException {
+    private synchronized void reconnectIfNeeded() throws SQLException {
         if (connection != null && !connection.isClosed() && connection.isValid(2)) {
             return;
         }
@@ -223,8 +226,8 @@ public final class Database {
         }
         usersByUsername.put(user.getUsername(), user);
         usersById.put(user.getId(), user);
-        usersDirty = true;
-        flushDirtyOnlyAsync();
+        markUsersDirty();
+        flush();
     }
 
     public Optional<User> findUserByUsername(String username) {
@@ -249,8 +252,8 @@ public final class Database {
             throw new IllegalArgumentException("Test cannot be null");
         }
         testsById.put(test.getTestID(), test);
-        testsDirty = true;
-        flushDirtyOnlyAsync();
+        markTestsDirty();
+        flush();
     }
 
     public Optional<Test> findTestById(String testID) {
@@ -267,8 +270,8 @@ public final class Database {
     public synchronized void removeTest(String testID) {
         if (testID != null) {
             testsById.remove(testID);
-            testsDirty = true;
-            flushDirtyOnlyAsync();
+            markTestsDirty();
+            flush();
         }
     }
 
@@ -279,8 +282,8 @@ public final class Database {
             throw new IllegalArgumentException("Classroom cannot be null");
         }
         classroomsById.put(classroom.getClassID(), classroom);
-        classroomsDirty = true;
-        flushDirtyOnlyAsync();
+        markClassroomsDirty();
+        flush();
     }
 
     public Optional<Classroom> findClassroomById(String classID) {
@@ -301,8 +304,8 @@ public final class Database {
         if (!submissions.contains(submission)) {
             submissions.add(submission);
         }
-        submissionsDirty = true;
-        flushDirtyOnlyAsync();
+        markSubmissionsDirty();
+        flush();
     }
 
     public synchronized List<Submission> getSubmissionsForStudent(Student student) {
@@ -360,8 +363,8 @@ public final class Database {
         if (!feedbackList.contains(feedback)) {
             feedbackList.add(feedback);
         }
-        feedbackDirty = true;
-        flushDirtyOnlyAsync();
+        markFeedbackDirty();
+        flush();
     }
 
     public synchronized List<Feedback> getFeedbackForTest(Test test) {
@@ -381,7 +384,8 @@ public final class Database {
             return;
         }
         systemLogs.add(LocalDateTime.now() + " - " + message);
-        flushAsync();
+        markSystemLogsDirty();
+        flush();
     }
 
     /** Most-recent-first view of every system-wide event recorded so far. */
@@ -393,100 +397,77 @@ public final class Database {
 
     // ---- Leaderboard ----
 
-    private final ExecutorService flushExecutor = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "examcore-db-flush");
-        thread.setDaemon(true);
-        return thread;
-    });
-
     public LeaderBoard getLeaderBoard() {
         return leaderBoard;
     }
 
-    private void flushAsync() {
-        flushExecutor.submit(this::flush);
+
+    public synchronized void markDirty() {
+        dirty = true;
     }
 
-    private void flushDirtyOnlyAsync() {
-        flushExecutor.submit(this::flushDirtyOnly);
-    }
-
-    public void flush() {
-        synchronized (ioLock) {
-            try {
-                reconnectIfNeeded();
-                connection.setAutoCommit(false);
-                try {
-                    writeUsers();
-                    writeTests();
-                    writeClassrooms();
-                    writeTeacherClassrooms();
-                    writeStudentAssignedTests();
-                    writeSubmissions();
-                    writeFeedback();
-                    writeSystemLogs();
-                    writeLeaderboard();
-                    writeAdminLogEntries();
-                    connection.commit();
-
-                } catch (SQLException e) {
-                    try {
-                        connection.rollback();
-                    } catch (SQLException rollbackError) {
-                        e.addSuppressed(rollbackError);
-                    }
-                    throw new IllegalStateException("Failed to persist ExamCore data", e);
-                } finally {
-                    connection.setAutoCommit(true);
-                }
-            } catch (SQLException e) {
-                throw new IllegalStateException("Failed to persist ExamCore data", e);
-            }
+    public synchronized void flush() {
+        if (!dirty) {
+            return;
         }
-    }
-
-    private void flushDirtyOnly() {
-        synchronized (ioLock) {
+        try {
+            reconnectIfNeeded();
+            connection.setAutoCommit(false);
             try {
-                reconnectIfNeeded();
-                connection.setAutoCommit(false);
-                try {
-                    if (usersDirty) {
-                        writeUsers();
-                        usersDirty = false;
-                    }
-                    if (testsDirty) {
-                        writeTests();
-                        testsDirty = false;
-                    }
-                    if (classroomsDirty) {
-                        writeClassrooms();
-                        writeTeacherClassrooms();
-                        writeStudentAssignedTests();
-                        classroomsDirty = false;
-                    }
-                    if (submissionsDirty) {
-                        writeSubmissions();
-                        submissionsDirty = false;
-                    }
-                    if (feedbackDirty) {
-                        writeFeedback();
-                        feedbackDirty = false;
-                    }
-                    connection.commit();
-                } catch (SQLException e) {
-                    try {
-                        connection.rollback();
-                    } catch (SQLException rollbackError) {
-                        e.addSuppressed(rollbackError);
-                    }
-                    throw new IllegalStateException("Failed to persist ExamCore data", e);
-                } finally {
-                    connection.setAutoCommit(true);
+                if (usersDirty) {
+                    writeUsers();
                 }
+                if (testsDirty) {
+                    writeTests();
+                }
+                if (classroomsDirty) {
+                    writeClassrooms();
+                }
+                if (teacherClassroomsDirty) {
+                    writeTeacherClassrooms();
+                }
+                if (studentAssignedTestsDirty) {
+                    writeStudentAssignedTests();
+                }
+                if (submissionsDirty) {
+                    writeSubmissions();
+                }
+                if (feedbackDirty) {
+                    writeFeedback();
+                }
+                if (systemLogsDirty) {
+                    writeSystemLogs();
+                }
+                if (leaderboardDirty) {
+                    writeLeaderboard();
+                }
+                if (adminLogEntriesDirty) {
+                    writeAdminLogEntries();
+                }
+                connection.commit();
+                dirty = false;
+                usersDirty = false;
+                testsDirty = false;
+                classroomsDirty = false;
+                teacherClassroomsDirty = false;
+                studentAssignedTestsDirty = false;
+                submissionsDirty = false;
+                feedbackDirty = false;
+                systemLogsDirty = false;
+                leaderboardDirty = false;
+                adminLogEntriesDirty = false;
             } catch (SQLException e) {
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackError) {
+                    e.addSuppressed(rollbackError);
+                }
                 throw new IllegalStateException("Failed to persist ExamCore data", e);
+            } finally {
+                connection.setAutoCommit(true);
             }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to persist ExamCore data", e);
         }
     }
 
@@ -500,6 +481,7 @@ public final class Database {
         feedbackList.clear();
         systemLogs.clear();
         leaderBoard.getRankings().keySet().forEach(s -> leaderBoard.recordScore(s, 0));
+        markAllDirty();
         seedData();
         flush();
     }
@@ -515,12 +497,12 @@ public final class Database {
                         "grade TEXT, is_verified INTEGER, admin_level INTEGER)",
                 "CREATE TABLE IF NOT EXISTS tests (" +
                         "test_id TEXT PRIMARY KEY, test_type TEXT NOT NULL, title TEXT, duration_limit INTEGER, " +
-                        "owner_username TEXT, topic TEXT, show_answers_after_exam INTEGER)",
+                        "owner_username TEXT, topic TEXT)",
                 "CREATE TABLE IF NOT EXISTS test_topics (test_id TEXT, position INTEGER, topic TEXT)",
                 "CREATE TABLE IF NOT EXISTS test_tags (test_id TEXT, position INTEGER, tag TEXT)",
                 "CREATE TABLE IF NOT EXISTS questions (" +
                         "test_id TEXT, question_id TEXT, position INTEGER, type TEXT, content TEXT, " +
-                        "solution TEXT, hint TEXT, explanation TEXT, PRIMARY KEY (test_id, question_id))",
+                        "solution TEXT, hint TEXT, PRIMARY KEY (test_id, question_id))",
                 "CREATE TABLE IF NOT EXISTS question_tags (test_id TEXT, question_id TEXT, position INTEGER, tag TEXT)",
                 "CREATE TABLE IF NOT EXISTS question_choices (test_id TEXT, question_id TEXT, position INTEGER, choice TEXT)",
                 "CREATE TABLE IF NOT EXISTS classrooms (class_id TEXT PRIMARY KEY, class_name TEXT)",
@@ -549,18 +531,7 @@ public final class Database {
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to initialize the ExamCore schema", e);
         }
-        addColumnIfMissing("tests", "show_answers_after_exam", "INTEGER");
-        addColumnIfMissing("questions", "explanation", "TEXT");
-
     }
-
-    private void addColumnIfMissing(String table, String column, String type) {
-        try (Statement statement = connection.createStatement()) {
-            statement.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + type);
-        } catch (SQLException e) {
-        }
-    }
-
 
     private boolean hasPersistedData() {
         try (Statement statement = connection.createStatement();
@@ -632,7 +603,6 @@ public final class Database {
                 Test test = TestType.valueOf(rs.getString("test_type")) == TestType.EXAM
                         ? new Exam(testId, title, durationLimit)
                         : new Quiz(testId, title, durationLimit, rs.getString("topic"));
-                        test.setShowAnswersAfterExam(rs.getInt("show_answers_after_exam") != 0);
 
                 String ownerUsername = rs.getString("owner_username");
                 if (ownerUsername != null && usersByUsername.get(ownerUsername) instanceof Teacher teacher) {
@@ -692,7 +662,6 @@ public final class Database {
                         ? new MultipleChoiceQuestion(questionId, content, solution)
                         : new FillInBlankQuestion(questionId, content, solution);
                 question.setHint(rs.getString("hint"));
-                question.setExplanation(rs.getString("explanation"));
                 test.addQuestion(question);
             }
         } catch (SQLException e) {
@@ -995,12 +964,12 @@ public final class Database {
         executeUpdate("DELETE FROM question_choices");
         executeUpdate("DELETE FROM question_tags");
 
-        String testSql = "INSERT INTO tests (test_id, test_type, title, duration_limit, owner_username, topic, "
-                + "show_answers_after_exam) VALUES (?,?,?,?,?,?,?)";
+        String testSql = "INSERT INTO tests (test_id, test_type, title, duration_limit, owner_username, topic) "
+                + "VALUES (?,?,?,?,?,?)";
         String topicSql = "INSERT INTO test_topics (test_id, position, topic) VALUES (?,?,?)";
         String tagSql = "INSERT INTO test_tags (test_id, position, tag) VALUES (?,?,?)";
         String questionSql = "INSERT INTO questions (test_id, question_id, position, type, content, solution, "
-                + "hint, explanation) VALUES (?,?,?,?,?,?,?,?)";
+                + "hint) VALUES (?,?,?,?,?,?,?)";
         String choiceSql = "INSERT INTO question_choices (test_id, question_id, position, choice) VALUES (?,?,?,?)";
         String questionTagSql = "INSERT INTO question_tags (test_id, question_id, position, tag) VALUES (?,?,?,?)";
 
@@ -1018,7 +987,6 @@ public final class Database {
                 testPs.setInt(4, test.getDurationLimit());
                 testPs.setString(5, test.getOwner() != null ? test.getOwner().getUsername() : null);
                 testPs.setString(6, test instanceof Quiz quiz ? quiz.getTopic() : null);
-                testPs.setInt(7, test.isShowAnswersAfterExam() ? 1 : 0);
                 testPs.addBatch();
 
                 if (test instanceof Exam exam) {
@@ -1048,7 +1016,6 @@ public final class Database {
                     questionPs.setString(5, question.getContent());
                     questionPs.setString(6, question.getSolution());
                     questionPs.setString(7, question.getHint());
-                    questionPs.setString(8, question.getExplanation());
                     questionPs.addBatch();
 
                     if (question instanceof MultipleChoiceQuestion mcq) {
@@ -1282,6 +1249,53 @@ public final class Database {
             }
             ps.executeBatch();
         }
+    }
+
+    private void markUsersDirty() {
+        dirty = true;
+        usersDirty = true;
+    }
+
+    private void markTestsDirty() {
+        dirty = true;
+        testsDirty = true;
+    }
+
+    private void markClassroomsDirty() {
+        dirty = true;
+        classroomsDirty = true;
+        teacherClassroomsDirty = true;
+        studentAssignedTestsDirty = true;
+    }
+
+    private void markSubmissionsDirty() {
+        dirty = true;
+        submissionsDirty = true;
+    }
+
+    private void markFeedbackDirty() {
+        dirty = true;
+        feedbackDirty = true;
+    }
+
+    private void markSystemLogsDirty() {
+        dirty = true;
+        systemLogsDirty = true;
+        adminLogEntriesDirty = true;
+    }
+
+    private void markAllDirty() {
+        dirty = true;
+        usersDirty = true;
+        testsDirty = true;
+        classroomsDirty = true;
+        teacherClassroomsDirty = true;
+        studentAssignedTestsDirty = true;
+        submissionsDirty = true;
+        feedbackDirty = true;
+        systemLogsDirty = true;
+        leaderboardDirty = true;
+        adminLogEntriesDirty = true;
     }
 
     private void executeUpdate(String sql) throws SQLException {

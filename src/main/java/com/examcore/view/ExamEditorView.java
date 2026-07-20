@@ -13,7 +13,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextArea;
@@ -29,6 +28,15 @@ import javafx.scene.layout.VBox;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * "Creating a New Exam" / edit-exam screen: authors a Test's basic details
+ * and questions (multiple-choice or short-answer) through
+ * {@link ExamAuthoringController}, matching the two-panel layout from
+ * EXAMCORE_DEMO.pdf. Reused by both the Teacher workspace (creating or
+ * editing its own tests) and the Admin console (editing any test) — the
+ * navigation chrome and the "create" affordance are parameterized so this
+ * one view class serves both contexts.
+ */
 public class ExamEditorView {
 
     private final ExamAuthoringController controller;
@@ -55,12 +63,15 @@ public class ExamEditorView {
     private TextField tagInputField;
     private FlowPane tagChipsPane;
     private Label questionNumberLabel;
-    private CheckBox explanationCheckBox;
-    private TextArea explanationArea;
     private VBox questionListBox;
     private Button saveQuestionButton;
     private Button cancelEditButton;
 
+    /**
+     * @param ownerForCreation the teacher who will own a brand-new test; required only when
+     *                         {@code existingTest} is null (creating), unused when editing
+     * @param existingTest     the test to edit, or null to create a new one
+     */
     public ExamEditorView(ExamAuthoringController controller, User navUser, List<String> navTabs, int activeNavTab,
                            Teacher ownerForCreation, Test existingTest, TestType type, Runnable onDone) {
         this.controller = controller;
@@ -110,11 +121,6 @@ public class ExamEditorView {
         TextField titleField = new TextField(test != null ? test.getTitle() : "");
         titleField.setPromptText("Title, e.g. " + (type == TestType.QUIZ ? "CS102 - QUIZ 2" : "MATH101"));
         titleField.setPrefWidth(320);
-        
-        CheckBox showAnswersCheckBox = new CheckBox("Let students see answers after the " + typeLabel().toLowerCase());
-        showAnswersCheckBox.setSelected(test != null && test.isShowAnswersAfterExam());
-        VBox titleBox = labeled("Title", titleField);
-        titleBox.getChildren().add(showAnswersCheckBox);
 
         TextField durationField = new TextField(test != null ? String.valueOf(test.getDurationLimit()) : "");
         durationField.setPromptText("Duration (minutes)");
@@ -126,7 +132,7 @@ public class ExamEditorView {
 
         HBox fieldsRow = new HBox(16);
         fieldsRow.setAlignment(Pos.CENTER_LEFT);
-        fieldsRow.getChildren().addAll(titleBox, labeled("Duration (min)", durationField));
+        fieldsRow.getChildren().addAll(labeled("Title", titleField), labeled("Duration (min)", durationField));
         if (type == TestType.QUIZ) {
             fieldsRow.getChildren().add(labeled("Topic", topicField));
         }
@@ -154,7 +160,6 @@ public class ExamEditorView {
                     quiz.setTopic(topicField.getText());
                 }
             }
-            controller.setShowAnswersAfterExam(test, showAnswersCheckBox.isSelected());
             render();
         });
 
@@ -211,21 +216,8 @@ public class ExamEditorView {
         shortAnswerSection.setVisible(false);
         shortAnswerSection.setManaged(false);
 
-        explanationCheckBox = new CheckBox("Add an explanation for this question");
-        explanationArea = new TextArea();
-        explanationArea.setPromptText("Shown to students after the test, if answers are allowed to be seen");
-        explanationArea.setPrefRowCount(2);
-        explanationArea.setWrapText(true);
-        explanationArea.setVisible(false);
-        explanationArea.setManaged(false);
-        explanationCheckBox.selectedProperty().addListener((obs, was, isNow) -> {
-            explanationArea.setVisible(isNow);
-            explanationArea.setManaged(isNow);
-        });
-        VBox explanationSection = new VBox(8, explanationCheckBox, explanationArea);
-
         questionCard.getChildren().addAll(questionNumberLabel, contentLabel, questionContentArea, mcSection,
-                shortAnswerSection, explanationSection);
+                shortAnswerSection);
 
         VBox sidePanel = UiComponents.card(14);
         Label typeLabel = new Label("Question Type :");
@@ -385,11 +377,6 @@ public class ExamEditorView {
             return;
         }
 
-        String explanation = explanationCheckBox.isSelected() ? explanationArea.getText() : null;
-        if (explanation != null && explanation.isBlank()) {
-            explanation = null;
-        }
-
         try {
             if (mcTypeRadio.isSelected()) {
                 List<String> choices = choiceFields.stream().map(TextField::getText).toList();
@@ -407,9 +394,9 @@ public class ExamEditorView {
                 String correctChoice = choices.get(correctIndex);
                 if (editingQuestionId != null) {
                     controller.updateMultipleChoiceQuestion(test, editingQuestionId, content, choices, correctChoice,
-                            currentTags, explanation);
+                            currentTags);
                 } else {
-                    controller.addMultipleChoiceQuestion(test, content, choices, correctChoice, currentTags, explanation);
+                    controller.addMultipleChoiceQuestion(test, content, choices, correctChoice, currentTags);
                 }
             } else {
                 String correctAnswer = shortAnswerField.getText();
@@ -419,9 +406,9 @@ public class ExamEditorView {
                 }
                 if (editingQuestionId != null) {
                     controller.updateShortAnswerQuestion(test, editingQuestionId, content, correctAnswer,
-                            currentTags, explanation);
+                            currentTags);
                 } else {
-                    controller.addShortAnswerQuestion(test, content, correctAnswer, currentTags, explanation);
+                    controller.addShortAnswerQuestion(test, content, correctAnswer, currentTags);
                 }
             }
         } catch (IllegalArgumentException ex) {
@@ -441,8 +428,6 @@ public class ExamEditorView {
         rebuildChoiceRows(null, null);
         shortAnswerField.clear();
         mcTypeRadio.setSelected(true);
-        explanationCheckBox.setSelected(false);
-        explanationArea.clear();
         saveQuestionButton.setText("+ Add question");
         cancelEditButton.setVisible(false);
         cancelEditButton.setManaged(false);
@@ -463,11 +448,6 @@ public class ExamEditorView {
             shortAnswerTypeRadio.setSelected(true);
             shortAnswerField.setText(question.getSolution());
         }
-
-        explanationCheckBox.setSelected(question.hasExplanation());
-        explanationArea.setText(question.hasExplanation() ? question.getExplanation() : "");
-        explanationArea.setVisible(question.hasExplanation());
-        explanationArea.setManaged(question.hasExplanation());
 
         saveQuestionButton.setText("Update question");
         cancelEditButton.setVisible(true);

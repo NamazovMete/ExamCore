@@ -13,8 +13,6 @@ public abstract class Question extends BaseEntity {
     private String content;
     private String solution;
     private String hint;
-    private String explanation;
-
 
     protected Question(QuestionType type, String questionID, String content, String solution) {
         super();
@@ -94,18 +92,4 @@ public abstract class Question extends BaseEntity {
         this.hint = hint;
         touch();
     }
-    
-    public String getExplanation() {
-        return explanation;
-    }
-
-    public void setExplanation(String explanation) {
-        this.explanation = explanation;
-        touch();
-    }
-
-    public boolean hasExplanation() {
-        return explanation != null && !explanation.isBlank();
-    }
-
 }

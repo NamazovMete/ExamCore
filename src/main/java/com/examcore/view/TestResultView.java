@@ -1,14 +1,12 @@
 package com.examcore.view;
 
 import com.examcore.data.Database;
-import com.examcore.model.Question;
 import com.examcore.model.Student;
 import com.examcore.model.Submission;
 import com.examcore.model.Test;
 import com.examcore.service.GradingService;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.BorderPane;
@@ -17,7 +15,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -75,7 +72,6 @@ public class TestResultView {
         statsCard.getChildren().addAll(statsTitle, statsLabel);
 
         VBox tagCard = buildTagPerformanceCard(gradingService, test, mySubmission);
-        VBox answersCard = test.isShowAnswersAfterExam() && mySubmission != null ? buildAnswersReviewCard(test, mySubmission) : null;
 
         VBox leaderboardCard = UiComponents.card(0);
         VBox table = new VBox(2);
@@ -106,14 +102,8 @@ public class TestResultView {
         Label leaderboardTitle = new Label("Leaderboard for this " + (totalQuestions == 0 ? "test" : test.getTestType()));
         leaderboardTitle.getStyleClass().add("section-title");
 
-        List<Node> pageChildren = new ArrayList<>(List.of(header, classroomLabel, summaryCard, statsCard, tagCard));
-        if (answersCard != null) {
-            pageChildren.add(answersCard);
-        }
-        pageChildren.addAll(List.of(leaderboardTitle, leaderboardCard));
-        VBox page = new VBox(24);
-        page.getChildren().addAll(pageChildren);
-
+        VBox page = new VBox(24, header, classroomLabel, summaryCard, statsCard, tagCard, leaderboardTitle,
+                leaderboardCard);
         VBox container = new VBox(28, nav, page);
         container.setPadding(new Insets(28, 40, 28, 40));
 
@@ -156,49 +146,6 @@ public class TestResultView {
         }
         return tagCard;
     }
-
-    private VBox buildAnswersReviewCard(Test test, Submission mySubmission) {
-        VBox card = UiComponents.card(14);
-        Label cardTitle = new Label("Answers & Explanations");
-        cardTitle.getStyleClass().add("section-title");
-        card.getChildren().add(cardTitle);
-
-        int index = 1;
-        for (Question question : test.getQuestions()) {
-            String yourAnswer = mySubmission.getAnswer(question.getQuestionID());
-            boolean correct = yourAnswer != null && question.validateAnswer(yourAnswer);
-
-            VBox questionBox = new VBox(4);
-            Label questionLabel = new Label(index + ". " + question.getContent());
-            questionLabel.setWrapText(true);
-            questionLabel.getStyleClass().add("row-title");
-            questionBox.getChildren().add(questionLabel);
-
-            String yourAnswerText = "Your answer: " + (yourAnswer == null || yourAnswer.isBlank()
-                    ? "(no answer)" : yourAnswer) + (correct ? "  ✓ Correct" : "  ✗ Incorrect");
-            Label yourAnswerLabel = new Label(yourAnswerText);
-            yourAnswerLabel.getStyleClass().add("row-subtitle");
-            questionBox.getChildren().add(yourAnswerLabel);
-
-            if (!correct) {
-                Label correctAnswerLabel = new Label("Correct answer: " + question.getSolution());
-                correctAnswerLabel.getStyleClass().add("row-subtitle");
-                questionBox.getChildren().add(correctAnswerLabel);
-            }
-
-            if (question.hasExplanation()) {
-                Label explanationLabel = new Label("Explanation: " + question.getExplanation());
-                explanationLabel.setWrapText(true);
-                explanationLabel.getStyleClass().add("muted-text");
-                questionBox.getChildren().add(explanationLabel);
-            }
-
-            card.getChildren().add(questionBox);
-            index++;
-        }
-        return card;
-    }
-
 
     private Label columnLabel(String text, double width) {
         Label label = new Label(text);
