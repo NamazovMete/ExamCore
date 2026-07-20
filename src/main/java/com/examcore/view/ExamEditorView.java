@@ -337,11 +337,37 @@ public class ExamEditorView {
         TextField optionField = new TextField(text);
         optionField.setPromptText("Option " + letter);
         HBox.setHgrow(optionField, Priority.ALWAYS);
-        HBox row = new HBox(10, correctRadio, optionField);
+
+        var removeButton = UiComponents.outlineButton("×");
+        removeButton.getStyleClass().add("btn-icon-pink");
+
+        HBox row = new HBox(10, correctRadio, optionField, removeButton);
         row.setAlignment(Pos.CENTER_LEFT);
+
+        removeButton.setOnAction(e -> removeChoiceRow(row, optionField, correctRadio));
+
         choiceFields.add(optionField);
         choiceCorrectButtons.add(correctRadio);
         choicesBox.getChildren().add(row);
+    }
+
+    private void removeChoiceRow(HBox row, TextField optionField, RadioButton correctRadio) {
+        if (choiceFields.size() <= 2) {
+            showError("A multiple-choice question needs at least 2 options.");
+            return;
+        }
+        choiceFields.remove(optionField);
+        choiceCorrectButtons.remove(correctRadio);
+        choicesBox.getChildren().remove(row);
+        relabelChoices();
+    }
+
+    private void relabelChoices() {
+        for (int i = 0; i < choiceFields.size(); i++) {
+            char letter = (char) ('A' + i);
+            choiceCorrectButtons.get(i).setText(String.valueOf(letter));
+            choiceFields.get(i).setPromptText("Option " + letter);
+        }
     }
 
     private void saveQuestion() {
