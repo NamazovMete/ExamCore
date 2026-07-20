@@ -53,6 +53,7 @@ public class FocusModeExamView {
     private final BorderPane root = new BorderPane();
     private final Label timerLabel = new Label();
     private final Label focusWarningLabel = new Label();
+    private final Label saveStatusLabel = new Label();
     private boolean timerHidden = false;
     private long lastSecondsRemaining;
 

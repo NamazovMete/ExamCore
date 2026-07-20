@@ -213,6 +213,10 @@ public class ExamRunnerController {
         return active;
     }
 
+    public boolean isDatabaseAvailable() {
+        return database.isConnectionAvailable();
+    }
+
     public Optional<Submission> getCurrentSubmission() {
         return Optional.ofNullable(currentSubmission);
     }
