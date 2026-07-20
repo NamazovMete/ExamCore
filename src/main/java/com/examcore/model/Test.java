@@ -15,6 +15,7 @@ public abstract class Test extends BaseEntity {
     private final List<String> tags = new ArrayList<>();
     private LocalDateTime timerStartedAt;
     private Teacher owner;
+    private boolean showAnswersAfterExam;
 
     protected Test(TestType testType, String testID, String title, int durationLimitMinutes) {
         super();
@@ -137,6 +138,16 @@ public abstract class Test extends BaseEntity {
         this.title = title;
         touch();
     }
+
+    public boolean isShowAnswersAfterExam() {
+        return showAnswersAfterExam;
+    }
+
+    public void setShowAnswersAfterExam(boolean showAnswersAfterExam) {
+        this.showAnswersAfterExam = showAnswersAfterExam;
+        touch();
+    }
+
 
     public int getDurationLimit() {
         return durationLimit;
