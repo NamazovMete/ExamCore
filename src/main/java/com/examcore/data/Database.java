@@ -70,6 +70,18 @@ public final class Database {
     private final List<String> systemLogs = new ArrayList<>();
     private final LeaderBoard leaderBoard = new LeaderBoard();
 
+    private boolean dirty = true;
+    private boolean usersDirty = true;
+    private boolean testsDirty = true;
+    private boolean classroomsDirty = true;
+    private boolean teacherClassroomsDirty = true;
+    private boolean studentAssignedTestsDirty = true;
+    private boolean submissionsDirty = true;
+    private boolean feedbackDirty = true;
+    private boolean systemLogsDirty = true;
+    private boolean leaderboardDirty = true;
+    private boolean adminLogEntriesDirty = true;
+
      private static final String NEON_DATABASE_URL_ENV = "NEON_DATABASE_URL";
 
     static {
@@ -191,6 +203,7 @@ public final class Database {
         }
         usersByUsername.put(user.getUsername(), user);
         usersById.put(user.getId(), user);
+        markUsersDirty();
         flush();
     }
 
@@ -216,6 +229,7 @@ public final class Database {
             throw new IllegalArgumentException("Test cannot be null");
         }
         testsById.put(test.getTestID(), test);
+        markTestsDirty();
         flush();
     }
 
@@ -233,6 +247,7 @@ public final class Database {
     public synchronized void removeTest(String testID) {
         if (testID != null) {
             testsById.remove(testID);
+            markTestsDirty();
             flush();
         }
     }
@@ -244,6 +259,7 @@ public final class Database {
             throw new IllegalArgumentException("Classroom cannot be null");
         }
         classroomsById.put(classroom.getClassID(), classroom);
+        markClassroomsDirty();
         flush();
     }
 
@@ -265,6 +281,7 @@ public final class Database {
         if (!submissions.contains(submission)) {
             submissions.add(submission);
         }
+        markSubmissionsDirty();
         flush();
     }
 
@@ -311,6 +328,7 @@ public final class Database {
         if (!feedbackList.contains(feedback)) {
             feedbackList.add(feedback);
         }
+        markFeedbackDirty();
         flush();
     }
 
@@ -331,6 +349,7 @@ public final class Database {
             return;
         }
         systemLogs.add(LocalDateTime.now() + " - " + message);
+        markSystemLogsDirty();
         flush();
     }
 
@@ -348,21 +367,59 @@ public final class Database {
     }
 
 
+    public synchronized void markDirty() {
+        dirty = true;
+    }
+
     public synchronized void flush() {
+        if (!dirty) {
+            return;
+        }
         try {
             connection.setAutoCommit(false);
             try {
-                writeUsers();
-                writeTests();
-                writeClassrooms();
-                writeTeacherClassrooms();
-                writeStudentAssignedTests();
-                writeSubmissions();
-                writeFeedback();
-                writeSystemLogs();
-                writeLeaderboard();
-                writeAdminLogEntries();
+                if (usersDirty) {
+                    writeUsers();
+                }
+                if (testsDirty) {
+                    writeTests();
+                }
+                if (classroomsDirty) {
+                    writeClassrooms();
+                }
+                if (teacherClassroomsDirty) {
+                    writeTeacherClassrooms();
+                }
+                if (studentAssignedTestsDirty) {
+                    writeStudentAssignedTests();
+                }
+                if (submissionsDirty) {
+                    writeSubmissions();
+                }
+                if (feedbackDirty) {
+                    writeFeedback();
+                }
+                if (systemLogsDirty) {
+                    writeSystemLogs();
+                }
+                if (leaderboardDirty) {
+                    writeLeaderboard();
+                }
+                if (adminLogEntriesDirty) {
+                    writeAdminLogEntries();
+                }
                 connection.commit();
+                dirty = false;
+                usersDirty = false;
+                testsDirty = false;
+                classroomsDirty = false;
+                teacherClassroomsDirty = false;
+                studentAssignedTestsDirty = false;
+                submissionsDirty = false;
+                feedbackDirty = false;
+                systemLogsDirty = false;
+                leaderboardDirty = false;
+                adminLogEntriesDirty = false;
             } catch (SQLException e) {
                 connection.rollback();
                 throw new IllegalStateException("Failed to persist ExamCore data", e);
@@ -384,6 +441,7 @@ public final class Database {
         feedbackList.clear();
         systemLogs.clear();
         leaderBoard.getRankings().keySet().forEach(s -> leaderBoard.recordScore(s, 0));
+        markAllDirty();
         seedData();
         flush();
     }
@@ -1151,6 +1209,53 @@ public final class Database {
             }
             ps.executeBatch();
         }
+    }
+
+    private void markUsersDirty() {
+        dirty = true;
+        usersDirty = true;
+    }
+
+    private void markTestsDirty() {
+        dirty = true;
+        testsDirty = true;
+    }
+
+    private void markClassroomsDirty() {
+        dirty = true;
+        classroomsDirty = true;
+        teacherClassroomsDirty = true;
+        studentAssignedTestsDirty = true;
+    }
+
+    private void markSubmissionsDirty() {
+        dirty = true;
+        submissionsDirty = true;
+    }
+
+    private void markFeedbackDirty() {
+        dirty = true;
+        feedbackDirty = true;
+    }
+
+    private void markSystemLogsDirty() {
+        dirty = true;
+        systemLogsDirty = true;
+        adminLogEntriesDirty = true;
+    }
+
+    private void markAllDirty() {
+        dirty = true;
+        usersDirty = true;
+        testsDirty = true;
+        classroomsDirty = true;
+        teacherClassroomsDirty = true;
+        studentAssignedTestsDirty = true;
+        submissionsDirty = true;
+        feedbackDirty = true;
+        systemLogsDirty = true;
+        leaderboardDirty = true;
+        adminLogEntriesDirty = true;
     }
 
     private void executeUpdate(String sql) throws SQLException {
