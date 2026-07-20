@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "MainApp",
+            "request": "launch",
+            "mainClass": "com.examcore.app.MainApp",
+            "projectName": "examcore",
+            "vmArgs": "--module-path \"${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-base\\17.0.10\\javafx-base-17.0.10-win.jar;${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-graphics\\17.0.10\\javafx-graphics-17.0.10-win.jar;${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-controls\\17.0.10\\javafx-controls-17.0.10-win.jar;${env:USERPROFILE}\\.m2\\repository\\org\\openjfx\\javafx-fxml\\17.0.10\\javafx-fxml-17.0.10-win.jar\" --add-modules javafx.controls,javafx.fxml",
+            "env": {
+                "NEON_DATABASE_URL": "postgresql://neondb_owner:npg_bn6rVo7UmOEB@ep-frosty-night-avhhrqeu-pooler.c-11.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+            }
+        }
+    ]
+}

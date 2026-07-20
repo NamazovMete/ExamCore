@@ -1187,7 +1187,7 @@ public final class Database {
         erdem.setVerified(true);
         saveUser(erdem);
 
-        Admin admin = new Admin("admin", "admin@examcore.local", "admin123");
+        Admin admin = new Admin("admin1", "admin@examcore.local", "admin123");
         admin.setFirstName("System");
         admin.setLastName("Admin");
         saveUser(admin);
