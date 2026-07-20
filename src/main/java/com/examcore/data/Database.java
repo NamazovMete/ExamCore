@@ -989,6 +989,7 @@ public final class Database {
                 testPs.setInt(4, test.getDurationLimit());
                 testPs.setString(5, test.getOwner() != null ? test.getOwner().getUsername() : null);
                 testPs.setString(6, test instanceof Quiz quiz ? quiz.getTopic() : null);
+                testPs.setInt(7, test.isShowAnswersAfterExam() ? 1 : 0);
                 testPs.addBatch();
 
                 if (test instanceof Exam exam) {
@@ -1018,6 +1019,7 @@ public final class Database {
                     questionPs.setString(5, question.getContent());
                     questionPs.setString(6, question.getSolution());
                     questionPs.setString(7, question.getHint());
+                    questionPs.setString(8, question.getExplanation());
                     questionPs.addBatch();
 
                     if (question instanceof MultipleChoiceQuestion mcq) {
