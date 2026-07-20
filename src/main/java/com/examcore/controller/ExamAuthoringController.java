@@ -46,9 +46,13 @@ public class ExamAuthoringController {
         return quiz;
     }
 
- 
     public MultipleChoiceQuestion addMultipleChoiceQuestion(Test test, String content, List<String> choices,
                                                               String correctChoice, List<String> tags) {
+        return addMultipleChoiceQuestion(test, content, choices, correctChoice, tags, null);
+    }
+ 
+    public MultipleChoiceQuestion addMultipleChoiceQuestion(Test test, String content, List<String> choices,
+                                                              String correctChoice, List<String> tags, String explanation) {
         if (test == null) {
             throw new IllegalArgumentException("Test cannot be null");
         }
@@ -60,14 +64,19 @@ public class ExamAuthoringController {
             question.addChoice(choice);
         }
         question.setTags(tags);
+        question.setExplanation(explanation);
         test.addQuestion(question);
         database.saveTest(test);
         return question;
     }
 
-   
     public FillInBlankQuestion addShortAnswerQuestion(Test test, String content, String correctAnswer,
                                                         List<String> tags) {
+        return addShortAnswerQuestion(test, content, correctAnswer, tags, null);                                                    
+    }
+   
+    public FillInBlankQuestion addShortAnswerQuestion(Test test, String content, String correctAnswer,
+                                                        List<String> tags, String explanation) {
         if (test == null) {
             throw new IllegalArgumentException("Test cannot be null");
         }
@@ -76,15 +85,21 @@ public class ExamAuthoringController {
         String questionID = nextQuestionID(test);
         FillInBlankQuestion question = new FillInBlankQuestion(questionID, content, correctAnswer);
         question.setTags(tags);
+        question.setExplanation(explanation);
         test.addQuestion(question);
         database.saveTest(test);
         return question;
     }
 
-
     public MultipleChoiceQuestion updateMultipleChoiceQuestion(Test test, String questionID, String content,
                                                                  List<String> choices, String correctChoice,
                                                                  List<String> tags) {
+        return updateMultipleChoiceQuestion(test, questionID, content, choices, correctChoice, tags, null);
+    }
+
+    public MultipleChoiceQuestion updateMultipleChoiceQuestion(Test test, String questionID, String content,
+                                                                 List<String> choices, String correctChoice,
+                                                                 List<String> tags, String explanation) {
         requireExistingQuestion(test, questionID);
         validateMultipleChoiceInput(content, choices, correctChoice);
 
@@ -93,23 +108,38 @@ public class ExamAuthoringController {
             replacement.addChoice(choice);
         }
         replacement.setTags(tags);
+        replacement.setExplanation(explanation);
         test.replaceQuestion(questionID, replacement);
         database.saveTest(test);
         return replacement;
     }
 
-    
     public FillInBlankQuestion updateShortAnswerQuestion(Test test, String questionID, String content,
                                                            String correctAnswer, List<String> tags) {
+        return updateShortAnswerQuestion(test, questionID, content, correctAnswer, tags, null);
+    }
+    
+    public FillInBlankQuestion updateShortAnswerQuestion(Test test, String questionID, String content,
+                                                           String correctAnswer, List<String> tags, String explanation) {
         requireExistingQuestion(test, questionID);
         validateShortAnswerInput(content, correctAnswer);
 
         FillInBlankQuestion replacement = new FillInBlankQuestion(questionID, content, correctAnswer);
         replacement.setTags(tags);
+        replacement.setExplanation(explanation);
         test.replaceQuestion(questionID, replacement);
         database.saveTest(test);
         return replacement;
     }
+
+    public void setShowAnswersAfterExam(Test test, boolean showAnswersAfterExam) {
+        if (test == null) {
+            throw new IllegalArgumentException("Test cannot be null");
+        }
+        test.setShowAnswersAfterExam(showAnswersAfterExam);
+        database.saveTest(test);
+    }
+
 
     //removes question by id
     public void removeQuestion(Test test, String questionID) {
