@@ -966,12 +966,12 @@ public final class Database {
         executeUpdate("DELETE FROM question_choices");
         executeUpdate("DELETE FROM question_tags");
 
-        String testSql = "INSERT INTO tests (test_id, test_type, title, duration_limit, owner_username, topic) "
-                + "VALUES (?,?,?,?,?,?)";
+        String testSql = "INSERT INTO tests (test_id, test_type, title, duration_limit, owner_username, topic, "
+                + "show_answers_after_exam) VALUES (?,?,?,?,?,?,?)";
         String topicSql = "INSERT INTO test_topics (test_id, position, topic) VALUES (?,?,?)";
         String tagSql = "INSERT INTO test_tags (test_id, position, tag) VALUES (?,?,?)";
         String questionSql = "INSERT INTO questions (test_id, question_id, position, type, content, solution, "
-                + "hint) VALUES (?,?,?,?,?,?,?)";
+                + "hint, explanation) VALUES (?,?,?,?,?,?,?,?)";
         String choiceSql = "INSERT INTO question_choices (test_id, question_id, position, choice) VALUES (?,?,?,?)";
         String questionTagSql = "INSERT INTO question_tags (test_id, question_id, position, tag) VALUES (?,?,?,?)";
 
