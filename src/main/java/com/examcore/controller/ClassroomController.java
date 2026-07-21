@@ -58,6 +58,17 @@ public class ClassroomController {
         database.flush();
     }
 
+    public void renameClassroom(Classroom classroom, String newClassName) {
+        if (classroom == null) {
+            throw new IllegalArgumentException("Classroom cannot be null");
+        }
+        if (newClassName == null || newClassName.isBlank()) {
+            throw new IllegalArgumentException("Class name cannot be blank");
+        }
+        classroom.setClassName(newClassName.trim());
+        database.saveClassroom(classroom);
+    }
+
     public void assignTest(Teacher teacher, Test test, Classroom classroom) {
         if (teacher == null || test == null || classroom == null) {
             throw new IllegalArgumentException("Teacher, test, and classroom cannot be null");

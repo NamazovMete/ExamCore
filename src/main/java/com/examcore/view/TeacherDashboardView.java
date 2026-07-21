@@ -136,13 +136,16 @@ public class TeacherDashboardView {
             Region rowSpacer = new Region();
             HBox.setHgrow(rowSpacer, Priority.ALWAYS);
 
+            var renameButton = UiComponents.outlineButton("Rename");
+            renameButton.setOnAction(e -> openRenameClassroomDialog(classroom));
+
             var viewStudentsButton = UiComponents.outlineButton("View Students");
             viewStudentsButton.setOnAction(e -> openViewStudentsDialog(classroom));
 
             var addStudentButton = UiComponents.outlineButton("Add Student");
             addStudentButton.setOnAction(e -> openAddStudentDialog(classroom));
 
-            row.getChildren().addAll(textBox, rowSpacer, viewStudentsButton, addStudentButton);
+            row.getChildren().addAll(textBox, rowSpacer, renameButton, viewStudentsButton, addStudentButton);
             list.getChildren().add(row);
         }
         if (teacher.getManagedClassrooms().isEmpty()) {
@@ -168,6 +171,24 @@ public class TeacherDashboardView {
                 classroomController.createClassroom(teacher, classID, className.trim());
                 render();
             } catch (IllegalStateException | IllegalArgumentException ex) {
+                showError(ex.getMessage());
+            }
+        });
+    }
+
+    private void openRenameClassroomDialog(Classroom classroom) {
+        TextInputDialog dialog = new TextInputDialog(classroom.getClassName());
+        dialog.setTitle("Rename Classroom");
+        dialog.setHeaderText("Rename \"" + classroom.getClassName() + "\"");
+        dialog.setContentText("New class name:");
+        dialog.showAndWait().ifPresent(newName -> {
+            if (newName.isBlank() || newName.trim().equals(classroom.getClassName())) {
+                return;
+            }
+            try {
+                classroomController.renameClassroom(classroom, newName);
+                render();
+            } catch (IllegalArgumentException ex) {
                 showError(ex.getMessage());
             }
         });
