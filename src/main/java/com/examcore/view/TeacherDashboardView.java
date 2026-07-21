@@ -251,33 +251,55 @@ public class TeacherDashboardView {
     }
 
     private void openViewStudentsDialog(Classroom classroom) {
+        openViewStudentsDialog(classroom, "");
+    }
+
+    private void openViewStudentsDialog(Classroom classroom, String initialQuery) {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Students");
         dialog.setHeaderText(classroom.getClassName() + " — " + classroom.getParticipantCount() + " student(s)");
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
-        VBox list = buildStudentRosterList(classroom, dialog);
-        var scrollPane = new javafx.scene.control.ScrollPane(list);
+        TextField search = new TextField(initialQuery == null ? "" : initialQuery);
+        search.setPromptText("🔍 Search by name or username");
+
+        VBox rosterList = new VBox(10);
+        Runnable refresh = () -> rosterList.getChildren()
+                .setAll(buildStudentRosterRows(classroom, dialog, search.getText()));
+        search.textProperty().addListener((obs, oldVal, newVal) -> refresh.run());
+        refresh.run();
+
+        var scrollPane = new javafx.scene.control.ScrollPane(rosterList);
         scrollPane.setFitToWidth(true);
-        scrollPane.setPrefSize(380, 280);
-        dialog.getDialogPane().setContent(scrollPane);
+        scrollPane.setPrefSize(380, 260);
+
+        VBox content = new VBox(10, search, scrollPane);
+        content.setPadding(new Insets(10));
+        dialog.getDialogPane().setContent(content);
+        javafx.application.Platform.runLater(search::requestFocus);
 
         dialog.showAndWait();
     }
 
-    private VBox buildStudentRosterList(Classroom classroom, Dialog<Void> dialog) {
-        VBox list = new VBox(10);
-        list.setPadding(new Insets(10));
-
+    private List<HBox> buildStudentRosterRows(Classroom classroom, Dialog<Void> dialog, String query) {
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase();
         List<Student> roster = classroom.getStudentList().stream()
+                .filter(s -> normalizedQuery.isEmpty()
+                        || UiComponents.fullName(s).toLowerCase().contains(normalizedQuery)
+                        || s.getUsername().toLowerCase().contains(normalizedQuery))
                 .sorted(Comparator.comparing(UiComponents::fullName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
+        List<HBox> rows = new java.util.ArrayList<>();
         if (roster.isEmpty()) {
-            Label empty = new Label("No students enrolled yet.");
+            Label empty = new Label(classroom.getStudentList().isEmpty()
+                    ? "No students enrolled yet."
+                    : "No students match your search.");
             empty.getStyleClass().add("muted-text");
-            list.getChildren().add(empty);
-            return list;
+            HBox emptyRow = new HBox(empty);
+            emptyRow.setPadding(new Insets(8));
+            rows.add(emptyRow);
+            return rows;
         }
 
         for (Student student : roster) {
@@ -292,15 +314,15 @@ public class TeacherDashboardView {
             HBox.setHgrow(rowSpacer, Priority.ALWAYS);
 
             var removeButton = UiComponents.outlineButton("Remove");
-            removeButton.setOnAction(e -> confirmRemoveStudent(classroom, student, dialog));
+            removeButton.setOnAction(e -> confirmRemoveStudent(classroom, student, dialog, query));
 
             row.getChildren().addAll(name, rowSpacer, removeButton);
-            list.getChildren().add(row);
+            rows.add(row);
         }
-        return list;
+        return rows;
     }
 
-    private void confirmRemoveStudent(Classroom classroom, Student student, Dialog<Void> dialog) {
+    private void confirmRemoveStudent(Classroom classroom, Student student, Dialog<Void> dialog, String currentQuery) {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
                 "Remove " + UiComponents.fullName(student) + " from " + classroom.getClassName() + "?",
                 ButtonType.YES, ButtonType.NO);
@@ -310,7 +332,7 @@ public class TeacherDashboardView {
                 classroomController.removeStudent(classroom, student);
                 dialog.close();
                 render();
-                openViewStudentsDialog(classroom);
+                openViewStudentsDialog(classroom, currentQuery);
             }
         });
     }
