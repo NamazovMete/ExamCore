@@ -136,10 +136,13 @@ public class TeacherDashboardView {
             Region rowSpacer = new Region();
             HBox.setHgrow(rowSpacer, Priority.ALWAYS);
 
+            var viewStudentsButton = UiComponents.outlineButton("View Students");
+            viewStudentsButton.setOnAction(e -> openViewStudentsDialog(classroom));
+
             var addStudentButton = UiComponents.outlineButton("Add Student");
             addStudentButton.setOnAction(e -> openAddStudentDialog(classroom));
 
-            row.getChildren().addAll(textBox, rowSpacer, addStudentButton);
+            row.getChildren().addAll(textBox, rowSpacer, viewStudentsButton, addStudentButton);
             list.getChildren().add(row);
         }
         if (teacher.getManagedClassrooms().isEmpty()) {
@@ -245,6 +248,71 @@ public class TeacherDashboardView {
                 render();
             }
         }
+    }
+
+    private void openViewStudentsDialog(Classroom classroom) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Students");
+        dialog.setHeaderText(classroom.getClassName() + " — " + classroom.getParticipantCount() + " student(s)");
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+
+        VBox list = buildStudentRosterList(classroom, dialog);
+        var scrollPane = new javafx.scene.control.ScrollPane(list);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefSize(380, 280);
+        dialog.getDialogPane().setContent(scrollPane);
+
+        dialog.showAndWait();
+    }
+
+    private VBox buildStudentRosterList(Classroom classroom, Dialog<Void> dialog) {
+        VBox list = new VBox(10);
+        list.setPadding(new Insets(10));
+
+        List<Student> roster = classroom.getStudentList().stream()
+                .sorted(Comparator.comparing(UiComponents::fullName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+
+        if (roster.isEmpty()) {
+            Label empty = new Label("No students enrolled yet.");
+            empty.getStyleClass().add("muted-text");
+            list.getChildren().add(empty);
+            return list;
+        }
+
+        for (Student student : roster) {
+            HBox row = new HBox(12);
+            row.getStyleClass().add("list-row");
+            row.setAlignment(Pos.CENTER_LEFT);
+
+            Label name = new Label(UiComponents.fullName(student) + " (" + student.getUsername() + ")");
+            name.getStyleClass().add("row-title");
+
+            Region rowSpacer = new Region();
+            HBox.setHgrow(rowSpacer, Priority.ALWAYS);
+
+            var removeButton = UiComponents.outlineButton("Remove");
+            removeButton.setOnAction(e -> confirmRemoveStudent(classroom, student, dialog));
+
+            row.getChildren().addAll(name, rowSpacer, removeButton);
+            list.getChildren().add(row);
+        }
+        return list;
+    }
+
+    private void confirmRemoveStudent(Classroom classroom, Student student, Dialog<Void> dialog) {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Remove " + UiComponents.fullName(student) + " from " + classroom.getClassName() + "?",
+                ButtonType.YES, ButtonType.NO);
+        confirm.setHeaderText("Remove Student");
+        confirm.showAndWait().ifPresent(button -> {
+            if (button == ButtonType.YES) {
+                classroomController.removeStudent(classroom, student);
+                dialog.close();
+                render();
+                openViewStudentsDialog(classroom);
+            }
+        });
     }
 
     // Exams / Quizzes
