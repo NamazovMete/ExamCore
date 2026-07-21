@@ -28,6 +28,8 @@ public class AdminController {
             throw new IllegalArgumentException("Teacher cannot be null");
         }
         admin.verifyTeacher(teacher);
+        database.saveUser(teacher);
+        database.saveUser(admin);
         database.flush();
     }
 
@@ -37,6 +39,8 @@ public class AdminController {
             throw new IllegalArgumentException("User cannot be null");
         }
         admin.deactivateUser(user);
+        database.saveUser(user);
+        database.saveUser(admin);
         database.flush();
     }
 
@@ -46,6 +50,8 @@ public class AdminController {
             throw new IllegalArgumentException("User cannot be null");
         }
         admin.reactivateUser(user);
+        database.saveUser(user);
+        database.saveUser(admin);
         database.flush();
     }
 
